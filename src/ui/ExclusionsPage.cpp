@@ -28,9 +28,9 @@ ExclusionsPage::ExclusionsPage(ClamAvManager *clam, QWidget *parent)
 
     auto *actRow   = new QHBoxLayout;
     m_btnAddFile   = new QPushButton(QIcon::fromTheme("list-add"),
-                                     tr("+ File"), this);
+                                     tr("File"), this);
     m_btnAddFolder = new QPushButton(QIcon::fromTheme("folder-new"),
-                                     tr("+ Folder"), this);
+                                     tr("Folder"), this);
     m_btnRemove    = new QPushButton(QIcon::fromTheme("list-remove"),
                                      tr("Remove"), this);
     m_btnRemove->setEnabled(false);

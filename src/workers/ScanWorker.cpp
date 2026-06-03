@@ -9,8 +9,10 @@ ScanWorker::ScanWorker(const QString &path,
 
 void ScanWorker::startScan()
 {
+    m_timer.start();
     m_process = new QProcess(this);
     m_process->setReadChannel(QProcess::StandardOutput);
+    m_process->setProcessChannelMode(QProcess::MergedChannels);
 
     connect(m_process, &QProcess::readyReadStandardOutput,
             this, &ScanWorker::onReadyRead);
@@ -20,13 +22,15 @@ void ScanWorker::startScan()
 
     QStringList args;
     args << "--recursive"
-         << "--infected"
          << "--no-summary"
-         << "--stdout"
+         << "--stdout"          // merged output to stdout
          << "--exclude-dir=^/proc"
          << "--exclude-dir=^/sys"
          << "--exclude-dir=^/dev"
          << "--exclude-dir=^/run";
+
+    // Do NOT use --infected: we need every line to count scanned files
+    // Threats show as "path: ThreatName FOUND", clean as "path: OK"
 
     for (const QString &excl : m_exclusions) {
         if (QFileInfo(excl).isDir())
@@ -45,13 +49,13 @@ void ScanWorker::startScan()
     }
 }
 
+// Called via Qt::QueuedConnection → runs in worker thread's event loop
 void ScanWorker::stopScan()
 {
     m_cancelled = true;
-    if (m_process) {
+    if (m_process && m_process->state() != QProcess::NotRunning) {
         m_process->terminate();
-        m_process->waitForFinished(3000);
-        m_process->kill();
+        // onProcessFinished will handle the rest
     }
 }
 
@@ -59,28 +63,41 @@ void ScanWorker::onReadyRead()
 {
     while (m_process && m_process->canReadLine()) {
         QString line = QString::fromUtf8(m_process->readLine()).trimmed();
-        if (line.isEmpty()) continue;
+        if (line.isEmpty() || line.startsWith("LibClamAV")) continue;
 
         if (line.endsWith(" FOUND")) {
-            static QRegularExpression re("^(.+): (.+) FOUND$");
-            QRegularExpressionMatch m = re.match(line);
+            // Format: "/path/to/file: ThreatName FOUND"
+            static QRegularExpression re(R"(^(.+): (.+) FOUND$)");
+            auto m = re.match(line);
             if (m.hasMatch()) {
                 m_infected++;
+                m_filesScanned++;
                 emit threatFound(m.captured(1), m.captured(2));
             }
-        } else if (line.contains(':') && !line.startsWith("LibClamAV")) {
+        } else if (line.endsWith(": OK")) {
             m_filesScanned++;
-            emit progressUpdate(m_filesScanned, line.section(':', 0, 0));
+        } else if (line.contains(": ") && !line.startsWith("---")) {
+            // Catch other non-OK, non-FOUND lines (errors on specific files)
+            m_filesScanned++;
+        } else {
+            continue;
         }
+
+        emit progressUpdate(m_filesScanned, m_infected,
+                            line.section(':', 0, 0),
+                            m_timer.elapsed());
     }
 }
 
 void ScanWorker::onProcessFinished(int exitCode, QProcess::ExitStatus)
 {
+    // exitCode 0 = clean, 1 = virus found, 2 = error
     if (exitCode == 2 && !m_cancelled)
-        emit scanError(tr("clamscan finished with errors. Check that the file/directory is accessible."));
+        emit scanError(
+            tr("clamscan finished with errors. "
+               "Check that the path is accessible."));
 
-    emit scanFinished(m_filesScanned, m_infected, m_cancelled);
+    emit scanFinished(m_filesScanned, m_infected, m_cancelled.load());
     m_process->deleteLater();
     m_process = nullptr;
 }
