@@ -71,7 +71,14 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
     // --- ClamAV service ---
     auto *clamGroup = new QGroupBox(tr("ClamAV Service"), this);
     auto *clamLay   = new QVBoxLayout(clamGroup);
-    m_chkRealtime = new QCheckBox(tr("Enable Real-Time Protection (clamav-daemon)"), this);
+    m_chkDaemon = new QCheckBox(tr("ClamAV Daemon (clamav-daemon)"), this);
+    m_chkDaemon->setToolTip(tr("Scanning backend — required for on-demand scans "
+                               "and real-time protection."));
+    clamLay->addWidget(m_chkDaemon);
+
+    m_chkRealtime = new QCheckBox(tr("Real-Time Protection (clamav-clamonacc)"), this);
+    m_chkRealtime->setToolTip(tr("On-access scanning via ClamOnAcc. "
+                                 "Requires clamav-daemon to be running."));
     clamLay->addWidget(m_chkRealtime);
 
     m_btnRestartDaemon = new QPushButton(
@@ -100,13 +107,24 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
             this, &SettingsPage::onThemeChanged);
     connect(m_langCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onLanguageChanged);
+    connect(m_chkDaemon, &QCheckBox::toggled, this, [this](bool checked) {
+        m_chkDaemon->setEnabled(false);
+        m_clam->setDaemonEnabled(checked);
+        QTimer::singleShot(4000, m_chkDaemon, [this]() {
+            m_chkDaemon->setEnabled(true);
+            m_chkDaemon->blockSignals(true);
+            m_chkDaemon->setChecked(m_clam->isDaemonRunning());
+            m_chkDaemon->blockSignals(false);
+        });
+    });
+
     connect(m_chkRealtime, &QCheckBox::toggled, this, [this](bool checked) {
         m_chkRealtime->setEnabled(false);
-        m_clam->setDaemonEnabled(checked);
+        m_clam->setClamonaacEnabled(checked);
         QTimer::singleShot(4000, m_chkRealtime, [this]() {
             m_chkRealtime->setEnabled(true);
             m_chkRealtime->blockSignals(true);
-            m_chkRealtime->setChecked(m_clam->isDaemonRunning());
+            m_chkRealtime->setChecked(m_clam->isClamonaacRunning());
             m_chkRealtime->blockSignals(false);
         });
     });
@@ -124,6 +142,7 @@ void SettingsPage::refresh()
 {
     m_chkAutostart->blockSignals(true);
     m_chkStartHidden->blockSignals(true);
+    m_chkDaemon->blockSignals(true);
     m_chkRealtime->blockSignals(true);
     m_langCombo->blockSignals(true);
 
@@ -146,7 +165,15 @@ void SettingsPage::refresh()
         }
     }
 
-    m_chkRealtime->setChecked(m_clam->isDaemonRunning());
+    m_chkDaemon->setChecked(m_clam->isDaemonRunning());
+    m_chkDaemon->blockSignals(false);
+
+    bool rtAvail = m_clam->isClamonaacAvailable();
+    m_chkRealtime->setEnabled(rtAvail);
+    m_chkRealtime->setChecked(rtAvail && m_clam->isClamonaacRunning());
+    if (!rtAvail)
+        m_chkRealtime->setText(
+            tr("Real-Time Protection (clamav-clamonacc — not configured on this system)"));
     m_chkRealtime->blockSignals(false);
     m_chkAutostart->blockSignals(false);
     m_chkStartHidden->blockSignals(false);

@@ -5,7 +5,9 @@
 
 struct SystemStatus {
     bool clamavInstalled   = false;
-    bool daemonRunning     = false;
+    bool daemonRunning     = false;   // clamav-daemon (scanning backend)
+    bool realtimeRunning   = false;   // clamav-clamonacc (on-access protection)
+    bool realtimeAvailable = false;   // clamonacc service unit exists on this system
     bool signaturesRecent  = false;
     bool firewallEnabled   = false;
     bool quarantineClean   = true;
@@ -21,8 +23,8 @@ class SystemChecker : public QObject
 {
     Q_OBJECT
 public:
-    explicit SystemChecker(ClamAvManager *clam,
-                           UFWManager   *ufw,
+    explicit SystemChecker(ClamAvManager     *clam,
+                           UFWManager        *ufw,
                            QuarantineManager *quar,
                            QObject *parent = nullptr);
 
@@ -33,8 +35,6 @@ signals:
     void statusChanged(const SystemStatus &status);
 
 private:
-    void startTimer();
-
     ClamAvManager     *m_clam;
     UFWManager        *m_ufw;
     QuarantineManager *m_quar;

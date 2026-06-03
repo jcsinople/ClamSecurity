@@ -43,60 +43,86 @@ QDateTime ClamAvManager::signatureDate() const
     return latest;
 }
 
-bool ClamAvManager::isDaemonRunning() const
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+bool ClamAvManager::serviceIsActive(const QString &unitName)
 {
     QProcess p;
-    p.start("systemctl", {"is-active", "--quiet", "clamav-daemon"});
-    p.waitForFinished(3000);
-    if (p.exitCode() == 0) return true;
-
-    QProcess p2;
-    p2.start("systemctl", {"is-active", "--quiet", "clamd"});
-    p2.waitForFinished(3000);
-    return p2.exitCode() == 0;
-}
-
-void ClamAvManager::setDaemonEnabled(bool enable)
-{
-    QProcess::startDetached("pkexec",
-        {"systemctl", enable ? "start" : "stop", "clamav-daemon"});
-}
-
-bool ClamAvManager::isFreshclamRunning() const
-{
-    QProcess p;
-    p.start("systemctl", {"is-active", "--quiet", "clamav-freshclam"});
+    p.start("systemctl", {"is-active", "--quiet", unitName});
     p.waitForFinished(3000);
     return p.exitCode() == 0;
 }
 
-QStringList ClamAvManager::exclusions() const
+bool ClamAvManager::serviceUnitExists(const QString &unitName)
 {
-    QSettings s;
-    return s.value("scan/exclusions", QStringList()).toStringList();
+    QProcess p;
+    // "systemctl cat" exits 0 if unit file is found anywhere on the system
+    p.start("systemctl", {"cat", "--quiet", unitName});
+    p.waitForFinished(3000);
+    return p.exitCode() == 0;
 }
 
-void ClamAvManager::setExclusions(const QStringList &paths)
+void ClamAvManager::toggleService(bool enable, const QString &unitName)
 {
-    QSettings s;
-    s.setValue("scan/exclusions", paths);
+    QProcess::startDetached("pkexec",
+        {"systemctl", enable ? "start" : "stop", unitName});
 }
 
-void ClamAvManager::addExclusion(const QString &path)
+// ── clamav-daemon ─────────────────────────────────────────────────────────────
+
+bool ClamAvManager::isDaemonRunning() const
 {
-    QStringList ex = exclusions();
-    if (!ex.contains(path)) {
-        ex << path;
-        setExclusions(ex);
+    return serviceIsActive("clamav-daemon") || serviceIsActive("clamd");
+}
+
+void ClamAvManager::setDaemonEnabled(bool enable)
+{
+    // Try the Debian/Ubuntu name first, then the generic one
+    QString svc = serviceUnitExists("clamav-daemon") ? "clamav-daemon" : "clamd";
+    toggleService(enable, svc);
+}
+
+// ── clamav-clamonacc ──────────────────────────────────────────────────────────
+
+QString ClamAvManager::clamonaacServiceName()
+{
+    // Check known unit names in order of preference
+    static const QStringList candidates = {
+        "clamav-clamonacc",
+        "clamonacc"
+    };
+    for (const QString &name : candidates) {
+        if (serviceUnitExists(name))
+            return name;
     }
+    return {};   // not found / not installed as a service
 }
 
-void ClamAvManager::removeExclusion(const QString &path)
+bool ClamAvManager::isClamonaacAvailable() const
 {
-    QStringList ex = exclusions();
-    ex.removeAll(path);
-    setExclusions(ex);
+    return !clamonaacServiceName().isEmpty();
 }
+
+bool ClamAvManager::isClamonaacRunning() const
+{
+    return serviceIsActive("clamav-clamonacc") || serviceIsActive("clamonacc");
+}
+
+void ClamAvManager::setClamonaacEnabled(bool enable)
+{
+    QString svc = clamonaacServiceName();
+    if (svc.isEmpty()) return;
+    toggleService(enable, svc);
+}
+
+// ── freshclam ─────────────────────────────────────────────────────────────────
+
+bool ClamAvManager::isFreshclamRunning() const
+{
+    return serviceIsActive("clamav-freshclam");
+}
+
+// ── signature update ──────────────────────────────────────────────────────────
 
 void ClamAvManager::forceUpdate()
 {
@@ -118,10 +144,10 @@ void ClamAvManager::onUpdateReadyRead()
 {
     QProcess *p = qobject_cast<QProcess*>(sender());
     if (!p) return;
-    QString out = QString::fromUtf8(p->readAllStandardOutput());
-    QString err = QString::fromUtf8(p->readAllStandardError());
-    if (!out.isEmpty()) emit updateOutput(out.trimmed());
-    if (!err.isEmpty()) emit updateOutput(err.trimmed());
+    QString out = QString::fromUtf8(p->readAllStandardOutput()).trimmed();
+    QString err = QString::fromUtf8(p->readAllStandardError()).trimmed();
+    if (!out.isEmpty()) emit updateOutput(out);
+    if (!err.isEmpty()) emit updateOutput(err);
 }
 
 void ClamAvManager::onUpdateFinished(int exitCode, QProcess::ExitStatus)
@@ -138,4 +164,31 @@ void ClamAvManager::onUpdateFinished(int exitCode, QProcess::ExitStatus)
     m_updateProcess->deleteLater();
     m_updateProcess = nullptr;
     emit updateFinished(success, msg);
+}
+
+// ── scan exclusions ───────────────────────────────────────────────────────────
+
+QStringList ClamAvManager::exclusions() const
+{
+    QSettings s;
+    return s.value("scan/exclusions", QStringList()).toStringList();
+}
+
+void ClamAvManager::setExclusions(const QStringList &paths)
+{
+    QSettings s;
+    s.setValue("scan/exclusions", paths);
+}
+
+void ClamAvManager::addExclusion(const QString &path)
+{
+    QStringList ex = exclusions();
+    if (!ex.contains(path)) { ex << path; setExclusions(ex); }
+}
+
+void ClamAvManager::removeExclusion(const QString &path)
+{
+    QStringList ex = exclusions();
+    ex.removeAll(path);
+    setExclusions(ex);
 }

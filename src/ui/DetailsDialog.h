@@ -16,6 +16,7 @@ private:
 
     QLabel *m_clamavRow;
     QLabel *m_daemonRow;
+    QLabel *m_realtimeRow;
     QLabel *m_sigRow;
     QLabel *m_firewallRow;
     QLabel *m_quarantineRow;
