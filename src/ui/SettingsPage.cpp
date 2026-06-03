@@ -9,6 +9,7 @@
 #include <QFont>
 #include <QMessageBox>
 #include <QProcess>
+#include <QTimer>
 #include <QSettings>
 #include <QDir>
 #include <QFile>
@@ -69,6 +70,9 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
     // --- ClamAV service ---
     auto *clamGroup = new QGroupBox(tr("ClamAV Service"), this);
     auto *clamLay   = new QVBoxLayout(clamGroup);
+    m_chkRealtime = new QCheckBox(tr("Enable Real-Time Protection (clamav-daemon)"), this);
+    clamLay->addWidget(m_chkRealtime);
+
     m_btnRestartDaemon = new QPushButton(
         QIcon::fromTheme("system-restart"),
         tr("Restart clamav-daemon (requires password)"), this);
@@ -95,6 +99,16 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
             this, &SettingsPage::onThemeChanged);
     connect(m_langCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &SettingsPage::onLanguageChanged);
+    connect(m_chkRealtime, &QCheckBox::toggled, this, [this](bool checked) {
+        m_chkRealtime->setEnabled(false);
+        m_clam->setDaemonEnabled(checked);
+        QTimer::singleShot(4000, m_chkRealtime, [this]() {
+            m_chkRealtime->setEnabled(true);
+            m_chkRealtime->blockSignals(true);
+            m_chkRealtime->setChecked(m_clam->isDaemonRunning());
+            m_chkRealtime->blockSignals(false);
+        });
+    });
     connect(m_btnRestartDaemon, &QPushButton::clicked,
             this, &SettingsPage::onRestartDaemon);
     connect(m_btnInstallMenu, &QPushButton::clicked,
@@ -109,6 +123,7 @@ void SettingsPage::refresh()
 {
     m_chkAutostart->blockSignals(true);
     m_chkStartHidden->blockSignals(true);
+    m_chkRealtime->blockSignals(true);
     m_langCombo->blockSignals(true);
 
     m_chkAutostart->setChecked(m_autostart->isAutostartEnabled());
@@ -130,6 +145,8 @@ void SettingsPage::refresh()
         }
     }
 
+    m_chkRealtime->setChecked(m_clam->isDaemonRunning());
+    m_chkRealtime->blockSignals(false);
     m_chkAutostart->blockSignals(false);
     m_chkStartHidden->blockSignals(false);
     m_langCombo->blockSignals(false);

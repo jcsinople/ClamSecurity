@@ -130,11 +130,18 @@ QWidget *MainWindow::buildOverviewPage()
     m_btnDetails = new QPushButton(tr("View Details…"), page);
     m_btnDetails->setFixedWidth(160);
 
+    m_realtimeToggle = new QCheckBox(tr("Real-Time Protection"), page);
+    QFont rtFont = m_realtimeToggle->font();
+    rtFont.setPointSize(10);
+    m_realtimeToggle->setFont(rtFont);
+
     statusBox->addStretch();
     statusBox->addWidget(m_statusLabel);
     statusBox->addWidget(m_statusSub);
     statusBox->addSpacing(8);
     statusBox->addWidget(m_btnDetails, 0, Qt::AlignLeft);
+    statusBox->addSpacing(4);
+    statusBox->addWidget(m_realtimeToggle, 0, Qt::AlignLeft);
     statusBox->addStretch();
 
     topPanel->addLayout(statusBox, 1);
@@ -183,6 +190,14 @@ QWidget *MainWindow::buildOverviewPage()
     layout->addStretch();
 
     connect(m_btnDetails, &QPushButton::clicked, this, &MainWindow::onShowDetails);
+    connect(m_realtimeToggle, &QCheckBox::toggled, this, [this](bool checked) {
+        m_realtimeToggle->setEnabled(false);
+        m_clam->setDaemonEnabled(checked);
+        QTimer::singleShot(4000, this, [this]() {
+            m_realtimeToggle->setEnabled(true);
+            m_checker->refresh();
+        });
+    });
 
     return page;
 }
@@ -289,6 +304,11 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     m_tray->setIcon(QIcon::fromTheme(
         ok ? "security-high" : "security-low",
         QIcon(":/icons/clamsecurity.svg")));
+
+    // Sync real-time protection toggles (overview + tray)
+    m_realtimeToggle->blockSignals(true);
+    m_realtimeToggle->setChecked(status.daemonRunning);
+    m_realtimeToggle->blockSignals(false);
     m_trayActRealtime->setChecked(status.daemonRunning);
 }
 

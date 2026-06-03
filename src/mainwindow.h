@@ -5,6 +5,7 @@
 #include <QMenu>
 #include <QLabel>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QToolBar>
 #include <QAction>
 #include "SystemChecker.h"
@@ -90,6 +91,7 @@ private:
     QLabel        *m_statusLabel;
     QLabel        *m_statusSub;
     QPushButton   *m_btnDetails;
+    QCheckBox     *m_realtimeToggle;
 
     // Module cards (overview grid)
     ModuleCard *m_cardScan;

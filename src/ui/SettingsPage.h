@@ -45,6 +45,7 @@ private:
     QRadioButton  *m_radioLight;
     QRadioButton  *m_radioDark;
     QComboBox     *m_langCombo;
+    QCheckBox     *m_chkRealtime;
     QPushButton   *m_btnRestartDaemon;
     QPushButton   *m_btnInstallMenu;
     QPushButton   *m_btnBack;
