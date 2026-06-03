@@ -222,9 +222,10 @@ void SettingsPage::onInstallServiceMenu()
         QTextStream out(&f);
         out << content;
         f.close();
-        // Service menu files must NOT be executable (data files, not scripts)
-        f.setPermissions(QFile::ReadOwner | QFile::WriteOwner |
-                         QFile::ReadGroup | QFile::ReadOther);
+        // KDE requires +x on user-local service menu files as a trust marker
+        f.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner |
+                         QFile::ReadGroup | QFile::ExeGroup |
+                         QFile::ReadOther  | QFile::ExeOther);
         QMessageBox::information(this, tr("Service Menu installed"),
             tr("Installed at:\n%1\n\nRestart Dolphin to activate it.").arg(destFile));
     } else {
