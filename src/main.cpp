@@ -3,6 +3,7 @@
 #include <QCommandLineParser>
 #include <QCommandLineOption>
 #include "mainwindow.h"
+#include "LanguageManager.h"
 
 int main(int argc, char *argv[])
 {
@@ -13,23 +14,30 @@ int main(int argc, char *argv[])
     app.setOrganizationDomain("clamsecurity.local");
     app.setQuitOnLastWindowClosed(false);
 
+    // ── Language: apply before any UI is created ──────────────────────────
+    // LanguageManager is destroyed with app, MainWindow gets its own instance.
+    // We use a temporary one here just for startup translation setup.
+    LanguageManager startupLang(&app);
+    startupLang.applyStartup();
+
+    // ── Command-line arguments ─────────────────────────────────────────────
     QCommandLineParser parser;
-    parser.setApplicationDescription(
-        "ClamSecurity — Antivirus y Firewall para Linux");
+    parser.setApplicationDescription("ClamSecurity — Antivirus & Firewall for Linux");
     parser.addHelpOption();
     parser.addVersionOption();
 
     QCommandLineOption scanOpt(
         "scan",
-        "Escanear el archivo o directorio especificado.",
+        QCoreApplication::translate("main", "Scan the specified file or directory."),
         "path");
     QCommandLineOption hiddenOpt(
         "hidden",
-        "Iniciar minimizado en el System Tray.");
+        QCoreApplication::translate("main", "Start minimized in the System Tray."));
     parser.addOption(scanOpt);
     parser.addOption(hiddenOpt);
     parser.process(app);
 
+    // ── Main window ────────────────────────────────────────────────────────
     MainWindow win;
 
     if (parser.isSet(scanOpt)) {
@@ -37,8 +45,7 @@ int main(int argc, char *argv[])
         win.show();
     } else if (!parser.isSet(hiddenOpt)) {
         QSettings s;
-        bool startHidden = s.value("autostart/startHidden", false).toBool();
-        if (!startHidden)
+        if (!s.value("autostart/startHidden", false).toBool())
             win.show();
     }
 

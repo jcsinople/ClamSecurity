@@ -13,13 +13,12 @@ DatabasePage::DatabasePage(ClamAvManager *clam, QWidget *parent)
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(12);
 
-    auto *title = new QLabel(tr("Actualización de Firmas"), this);
+    auto *title = new QLabel(tr("Signature Update"), this);
     QFont f = title->font(); f.setPointSize(16); f.setBold(true);
     title->setFont(f);
     layout->addWidget(title);
 
-    // Status group
-    auto *group = new QGroupBox(tr("Estado de la Base de Datos"), this);
+    auto *group = new QGroupBox(tr("Database Status"), this);
     auto *gl    = new QVBoxLayout(group);
 
     m_dateLabel = new QLabel(this);
@@ -27,38 +26,32 @@ DatabasePage::DatabasePage(ClamAvManager *clam, QWidget *parent)
     m_dateLabel->setFont(df);
     gl->addWidget(m_dateLabel);
 
-    auto *verLabel = new QLabel(ClamAvManager::version(), this);
-    gl->addWidget(verLabel);
+    gl->addWidget(new QLabel(ClamAvManager::version(), this));
 
     m_statusLabel = new QLabel(this);
     gl->addWidget(m_statusLabel);
-
     layout->addWidget(group);
 
-    // Progress
     m_progress = new QProgressBar(this);
     m_progress->setRange(0, 0);
     m_progress->setVisible(false);
     layout->addWidget(m_progress);
 
-    // Output log
-    auto *logGroup = new QGroupBox(tr("Salida de freshclam"), this);
+    auto *logGroup = new QGroupBox(tr("freshclam output"), this);
     auto *logLay   = new QVBoxLayout(logGroup);
     m_outputLog = new QPlainTextEdit(this);
     m_outputLog->setReadOnly(true);
     m_outputLog->setMaximumHeight(150);
-    QFont mono("Monospace", 8);
-    m_outputLog->setFont(mono);
+    m_outputLog->setFont(QFont("Monospace", 8));
     logLay->addWidget(m_outputLog);
     layout->addWidget(logGroup);
 
     layout->addStretch();
 
-    // Buttons
-    auto *btnRow = new QHBoxLayout;
-    m_btnBack   = new QPushButton(QIcon::fromTheme("go-previous"), tr("Volver"), this);
-    m_btnUpdate = new QPushButton(QIcon::fromTheme("system-software-update"),
-                                  tr("Actualizar Ahora"), this);
+    auto *btnRow  = new QHBoxLayout;
+    m_btnBack     = new QPushButton(QIcon::fromTheme("go-previous"), tr("Back"), this);
+    m_btnUpdate   = new QPushButton(QIcon::fromTheme("system-software-update"),
+                                    tr("Update Now"), this);
     btnRow->addWidget(m_btnBack);
     btnRow->addStretch();
     btnRow->addWidget(m_btnUpdate);
@@ -79,22 +72,20 @@ void DatabasePage::refresh()
     QDateTime sigDate = m_clam->signatureDate();
     if (sigDate.isValid()) {
         int days = sigDate.daysTo(QDateTime::currentDateTime());
-        m_dateLabel->setText(tr("Última actualización: %1  (%2 días atrás)")
-                             .arg(sigDate.toString("dd/MM/yyyy HH:mm"))
-                             .arg(days));
+        m_dateLabel->setText(
+            tr("Last update: %1  (%2 days ago)")
+            .arg(sigDate.toString("yyyy-MM-dd HH:mm")).arg(days));
+        QPalette p = m_statusLabel->palette();
         if (days > 7) {
-            m_statusLabel->setText(tr("⚠ Las firmas están desactualizadas."));
-            QPalette p = m_statusLabel->palette();
+            m_statusLabel->setText(tr("⚠  Signatures are out of date."));
             p.setColor(QPalette::WindowText, QColor(0xC6, 0x28, 0x28));
-            m_statusLabel->setPalette(p);
         } else {
-            m_statusLabel->setText(tr("✓ Firmas al día."));
-            QPalette p = m_statusLabel->palette();
+            m_statusLabel->setText(tr("✓  Signatures are up to date."));
             p.setColor(QPalette::WindowText, QColor(0x2E, 0x7D, 0x32));
-            m_statusLabel->setPalette(p);
         }
+        m_statusLabel->setPalette(p);
     } else {
-        m_dateLabel->setText(tr("No se pudo leer la fecha de las firmas."));
+        m_dateLabel->setText(tr("Could not read signature date."));
     }
 }
 
@@ -103,14 +94,11 @@ void DatabasePage::onUpdateClicked()
     m_outputLog->clear();
     m_progress->setVisible(true);
     m_btnUpdate->setEnabled(false);
-    m_statusLabel->setText(tr("Actualizando firmas..."));
+    m_statusLabel->setText(tr("Updating signatures…"));
     m_clam->forceUpdate();
 }
 
-void DatabasePage::onUpdateOutput(const QString &line)
-{
-    m_outputLog->appendPlainText(line);
-}
+void DatabasePage::onUpdateOutput(const QString &line)   { m_outputLog->appendPlainText(line); }
 
 void DatabasePage::onUpdateFinished(bool success, const QString &message)
 {

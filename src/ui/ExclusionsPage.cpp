@@ -5,7 +5,6 @@
 #include <QLabel>
 #include <QFont>
 #include <QFileDialog>
-#include <QMessageBox>
 #include <QDir>
 
 ExclusionsPage::ExclusionsPage(ClamAvManager *clam, QWidget *parent)
@@ -15,40 +14,35 @@ ExclusionsPage::ExclusionsPage(ClamAvManager *clam, QWidget *parent)
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(12);
 
-    auto *title = new QLabel(tr("Exclusiones de Escaneo"), this);
+    auto *title = new QLabel(tr("Scan Exclusions"), this);
     QFont f = title->font(); f.setPointSize(16); f.setBold(true);
     title->setFont(f);
     layout->addWidget(title);
 
-    auto *hint = new QLabel(
-        tr("Las rutas aquí listadas serán ignoradas durante el escaneo."), this);
-    layout->addWidget(hint);
+    layout->addWidget(new QLabel(
+        tr("Paths listed here will be skipped during scans."), this));
 
     m_list = new QListWidget(this);
     m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
     layout->addWidget(m_list);
 
-    // Action buttons (add/remove)
-    auto *actRow = new QHBoxLayout;
+    auto *actRow   = new QHBoxLayout;
     m_btnAddFile   = new QPushButton(QIcon::fromTheme("list-add"),
-                                     tr("+ Archivo"), this);
+                                     tr("+ File"), this);
     m_btnAddFolder = new QPushButton(QIcon::fromTheme("folder-new"),
-                                     tr("+ Carpeta"), this);
+                                     tr("+ Folder"), this);
     m_btnRemove    = new QPushButton(QIcon::fromTheme("list-remove"),
-                                     tr("Eliminar"), this);
+                                     tr("Remove"), this);
     m_btnRemove->setEnabled(false);
-
     actRow->addWidget(m_btnAddFile);
     actRow->addWidget(m_btnAddFolder);
     actRow->addStretch();
     actRow->addWidget(m_btnRemove);
     layout->addLayout(actRow);
-
     layout->addStretch();
 
-    // Navigation
     auto *navRow = new QHBoxLayout;
-    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Volver"), this);
+    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Back"), this);
     navRow->addWidget(m_btnBack);
     navRow->addStretch();
     layout->addLayout(navRow);
@@ -74,22 +68,16 @@ void ExclusionsPage::refresh()
 void ExclusionsPage::onAddFile()
 {
     QString file = QFileDialog::getOpenFileName(
-        this, tr("Seleccionar archivo a excluir"), QDir::homePath());
-    if (!file.isEmpty()) {
-        m_clam->addExclusion(file);
-        refresh();
-    }
+        this, tr("Select file to exclude"), QDir::homePath());
+    if (!file.isEmpty()) { m_clam->addExclusion(file); refresh(); }
 }
 
 void ExclusionsPage::onAddFolder()
 {
     QString dir = QFileDialog::getExistingDirectory(
-        this, tr("Seleccionar carpeta a excluir"), QDir::homePath(),
+        this, tr("Select folder to exclude"), QDir::homePath(),
         QFileDialog::ShowDirsOnly);
-    if (!dir.isEmpty()) {
-        m_clam->addExclusion(dir);
-        refresh();
-    }
+    if (!dir.isEmpty()) { m_clam->addExclusion(dir); refresh(); }
 }
 
 void ExclusionsPage::onRemoveSelected()

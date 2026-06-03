@@ -1,6 +1,7 @@
 #include "SettingsPage.h"
 #include "AutostartManager.h"
 #include "ClamAvManager.h"
+#include "LanguageManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -12,38 +13,40 @@
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
+#include <QApplication>
 
 SettingsPage::SettingsPage(AutostartManager *autostart,
                             ClamAvManager    *clam,
+                            LanguageManager  *langMgr,
                             QWidget *parent)
-    : QWidget(parent), m_autostart(autostart), m_clam(clam)
+    : QWidget(parent), m_autostart(autostart), m_clam(clam), m_langMgr(langMgr)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
     layout->setSpacing(12);
 
-    auto *title = new QLabel(tr("Configuración"), this);
+    auto *title = new QLabel(tr("Settings"), this);
     QFont f = title->font(); f.setPointSize(16); f.setBold(true);
     title->setFont(f);
     layout->addWidget(title);
 
     // --- Autostart ---
-    auto *startGroup = new QGroupBox(tr("Inicio del Sistema"), this);
+    auto *startGroup = new QGroupBox(tr("System Startup"), this);
     auto *startLay   = new QVBoxLayout(startGroup);
-    m_chkAutostart   = new QCheckBox(tr("Iniciar ClamSecurity con el sistema"), this);
-    m_chkStartHidden = new QCheckBox(tr("Arrancar oculto en el System Tray"), this);
+    m_chkAutostart   = new QCheckBox(tr("Start ClamSecurity with the system"), this);
+    m_chkStartHidden = new QCheckBox(tr("Start hidden in System Tray"), this);
     m_chkStartHidden->setEnabled(false);
     startLay->addWidget(m_chkAutostart);
     startLay->addWidget(m_chkStartHidden);
     layout->addWidget(startGroup);
 
     // --- Theme ---
-    auto *themeGroup = new QGroupBox(tr("Tema Visual"), this);
+    auto *themeGroup = new QGroupBox(tr("Visual Theme"), this);
     auto *themeLay   = new QHBoxLayout(themeGroup);
-    m_themeGroup = new QButtonGroup(this);
-    m_radioSystem = new QRadioButton(tr("Sistema"), this);
-    m_radioLight  = new QRadioButton(tr("Claro"),   this);
-    m_radioDark   = new QRadioButton(tr("Oscuro"),  this);
+    m_themeGroup  = new QButtonGroup(this);
+    m_radioSystem = new QRadioButton(tr("System"), this);
+    m_radioLight  = new QRadioButton(tr("Light"),  this);
+    m_radioDark   = new QRadioButton(tr("Dark"),   this);
     m_themeGroup->addButton(m_radioSystem, 0);
     m_themeGroup->addButton(m_radioLight,  1);
     m_themeGroup->addButton(m_radioDark,   2);
@@ -52,15 +55,26 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
     themeLay->addWidget(m_radioDark);
     layout->addWidget(themeGroup);
 
+    // --- Language ---
+    auto *langGroup = new QGroupBox(tr("Language"), this);
+    auto *langLay   = new QHBoxLayout(langGroup);
+    langLay->addWidget(new QLabel(tr("Interface language:"), this));
+    m_langCombo = new QComboBox(this);
+    for (const auto &lang : LanguageManager::available())
+        m_langCombo->addItem(lang.name, lang.code);
+    langLay->addWidget(m_langCombo);
+    langLay->addStretch();
+    layout->addWidget(langGroup);
+
     // --- ClamAV service ---
-    auto *clamGroup = new QGroupBox(tr("Servicio ClamAV"), this);
+    auto *clamGroup = new QGroupBox(tr("ClamAV Service"), this);
     auto *clamLay   = new QVBoxLayout(clamGroup);
     m_btnRestartDaemon = new QPushButton(
         QIcon::fromTheme("system-restart"),
-        tr("Reiniciar clamav-daemon (requiere contraseña)"), this);
+        tr("Restart clamav-daemon (requires password)"), this);
     m_btnInstallMenu = new QPushButton(
         QIcon::fromTheme("document-save"),
-        tr("Instalar Service Menu de Dolphin"), this);
+        tr("Install Dolphin Service Menu"), this);
     clamLay->addWidget(m_btnRestartDaemon);
     clamLay->addWidget(m_btnInstallMenu);
     layout->addWidget(clamGroup);
@@ -68,7 +82,7 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
     layout->addStretch();
 
     auto *navRow = new QHBoxLayout;
-    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Volver"), this);
+    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Back"), this);
     navRow->addWidget(m_btnBack);
     navRow->addStretch();
     layout->addLayout(navRow);
@@ -79,6 +93,8 @@ SettingsPage::SettingsPage(AutostartManager *autostart,
             this, &SettingsPage::onStartHiddenToggled);
     connect(m_themeGroup, &QButtonGroup::idClicked,
             this, &SettingsPage::onThemeChanged);
+    connect(m_langCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, &SettingsPage::onLanguageChanged);
     connect(m_btnRestartDaemon, &QPushButton::clicked,
             this, &SettingsPage::onRestartDaemon);
     connect(m_btnInstallMenu, &QPushButton::clicked,
@@ -93,17 +109,30 @@ void SettingsPage::refresh()
 {
     m_chkAutostart->blockSignals(true);
     m_chkStartHidden->blockSignals(true);
+    m_langCombo->blockSignals(true);
+
     m_chkAutostart->setChecked(m_autostart->isAutostartEnabled());
     m_chkStartHidden->setChecked(m_autostart->isStartHidden());
     m_chkStartHidden->setEnabled(m_chkAutostart->isChecked());
-    m_chkAutostart->blockSignals(false);
-    m_chkStartHidden->blockSignals(false);
 
     QSettings s;
     int theme = s.value("ui/theme", 0).toInt();
     if      (theme == 1) m_radioLight->setChecked(true);
     else if (theme == 2) m_radioDark->setChecked(true);
     else                 m_radioSystem->setChecked(true);
+
+    // Select current language in combo
+    QString cur = m_langMgr->current();
+    for (int i = 0; i < m_langCombo->count(); ++i) {
+        if (m_langCombo->itemData(i).toString() == cur) {
+            m_langCombo->setCurrentIndex(i);
+            break;
+        }
+    }
+
+    m_chkAutostart->blockSignals(false);
+    m_chkStartHidden->blockSignals(false);
+    m_langCombo->blockSignals(false);
 }
 
 void SettingsPage::onAutostartToggled(bool checked)
@@ -124,12 +153,27 @@ void SettingsPage::onThemeChanged(int id)
     emit themeChangeRequested(id);
 }
 
+void SettingsPage::onLanguageChanged(int index)
+{
+    QString code = m_langCombo->itemData(index).toString();
+    if (m_langMgr->apply(code)) {
+        QMessageBox::information(this, tr("Language changed"),
+            tr("The language will be applied after restarting ClamSecurity.\n\n"
+               "Restart now?"));
+        // Restart the application to apply the new language immediately
+        QProcess::startDetached(QApplication::applicationFilePath(),
+                                QApplication::arguments());
+        QApplication::quit();
+    }
+}
+
 void SettingsPage::onRestartDaemon()
 {
     QProcess::startDetached("pkexec",
         {"systemctl", "restart", "clamav-daemon"});
-    QMessageBox::information(this, tr("Servicio"),
-        tr("Se solicitó el reinicio de clamav-daemon.\nSe pedirá tu contraseña mediante pkexec."));
+    QMessageBox::information(this, tr("Service"),
+        tr("Restart of clamav-daemon was requested.\n"
+           "You will be prompted for your password via pkexec."));
 }
 
 void SettingsPage::onInstallServiceMenu()
@@ -147,7 +191,7 @@ void SettingsPage::onInstallServiceMenu()
         "X-KDE-Priority=TopLevel\n"
         "\n"
         "[Desktop Action ScanWithClamSecurity]\n"
-        "Name=Escanear con ClamSecurity\n"
+        "Name=Scan with ClamSecurity\n"
         "Name[es]=Escanear con ClamSecurity\n"
         "Icon=security-high\n"
         "Exec=ClamSecurity --scan %f\n";
@@ -156,10 +200,10 @@ void SettingsPage::onInstallServiceMenu()
     if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&f);
         out << content;
-        QMessageBox::information(this, tr("Service Menu instalado"),
-            tr("Instalado en:\n%1\n\nReinicia Dolphin para activarlo.").arg(destFile));
+        QMessageBox::information(this, tr("Service Menu installed"),
+            tr("Installed at:\n%1\n\nRestart Dolphin to activate it.").arg(destFile));
     } else {
         QMessageBox::warning(this, tr("Error"),
-            tr("No se pudo escribir:\n%1").arg(destFile));
+            tr("Could not write:\n%1").arg(destFile));
     }
 }

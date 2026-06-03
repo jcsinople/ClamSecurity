@@ -4,7 +4,6 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QDateTime>
-#include <QStandardPaths>
 
 ClamAvManager::ClamAvManager(QObject *parent) : QObject(parent) {}
 
@@ -51,7 +50,6 @@ bool ClamAvManager::isDaemonRunning() const
     p.waitForFinished(3000);
     if (p.exitCode() == 0) return true;
 
-    // Fallback: check clamd.service
     QProcess p2;
     p2.start("systemctl", {"is-active", "--quiet", "clamd"});
     p2.waitForFinished(3000);
@@ -60,9 +58,8 @@ bool ClamAvManager::isDaemonRunning() const
 
 void ClamAvManager::setDaemonEnabled(bool enable)
 {
-    const QString action = enable ? "start" : "stop";
     QProcess::startDetached("pkexec",
-        {"systemctl", action, "clamav-daemon"});
+        {"systemctl", enable ? "start" : "stop", "clamav-daemon"});
 }
 
 bool ClamAvManager::isFreshclamRunning() const
@@ -129,14 +126,14 @@ void ClamAvManager::onUpdateReadyRead()
 
 void ClamAvManager::onUpdateFinished(int exitCode, QProcess::ExitStatus)
 {
-    QString msg;
     bool success = (exitCode == 0);
+    QString msg;
     if (success)
-        msg = tr("Firmas de virus actualizadas correctamente.");
+        msg = tr("Virus signatures updated successfully.");
     else if (exitCode == 127)
-        msg = tr("Operación cancelada por el usuario.");
+        msg = tr("Operation cancelled by user.");
     else
-        msg = tr("Error al actualizar firmas (código %1).").arg(exitCode);
+        msg = tr("Error updating signatures (code %1).").arg(exitCode);
 
     m_updateProcess->deleteLater();
     m_updateProcess = nullptr;

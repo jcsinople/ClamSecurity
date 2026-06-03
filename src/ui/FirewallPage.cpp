@@ -19,37 +19,33 @@ FirewallPage::FirewallPage(UFWManager *ufw, QWidget *parent)
     title->setFont(f);
     layout->addWidget(title);
 
-    auto *ctrlGroup = new QGroupBox(tr("Control del Firewall"), this);
+    auto *ctrlGroup = new QGroupBox(tr("Firewall Control"), this);
     auto *ctrlLay   = new QHBoxLayout(ctrlGroup);
-
-    m_toggle = new QCheckBox(tr("Activar firewall"), this);
+    m_toggle      = new QCheckBox(tr("Enable firewall"), this);
     m_statusLabel = new QLabel(this);
     QFont sf = m_statusLabel->font(); sf.setPointSize(10);
     m_statusLabel->setFont(sf);
-
     ctrlLay->addWidget(m_toggle);
     ctrlLay->addSpacing(16);
     ctrlLay->addWidget(m_statusLabel);
     ctrlLay->addStretch();
     layout->addWidget(ctrlGroup);
 
-    auto *rulesGroup = new QGroupBox(tr("Estado y reglas activas"), this);
+    auto *rulesGroup = new QGroupBox(tr("Status and active rules"), this);
     auto *rulesLay   = new QVBoxLayout(rulesGroup);
     m_rulesView = new QPlainTextEdit(this);
     m_rulesView->setReadOnly(true);
-    QFont mono("Monospace", 9);
-    m_rulesView->setFont(mono);
+    m_rulesView->setFont(QFont("Monospace", 9));
     m_rulesView->setMinimumHeight(180);
     rulesLay->addWidget(m_rulesView);
-
     m_btnRefresh = new QPushButton(QIcon::fromTheme("view-refresh"),
-                                   tr("Refrescar Reglas"), this);
+                                   tr("Refresh Rules"), this);
     rulesLay->addWidget(m_btnRefresh);
     layout->addWidget(rulesGroup);
     layout->addStretch();
 
     auto *navRow = new QHBoxLayout;
-    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Volver"), this);
+    m_btnBack = new QPushButton(QIcon::fromTheme("go-previous"), tr("Back"), this);
     navRow->addWidget(m_btnBack);
     navRow->addStretch();
     layout->addLayout(navRow);
@@ -69,7 +65,7 @@ FirewallPage::FirewallPage(UFWManager *ufw, QWidget *parent)
     if (!UFWManager::isInstalled()) {
         m_toggle->setEnabled(false);
         m_btnRefresh->setEnabled(false);
-        m_statusLabel->setText(tr("UFW no instalado — sudo pacman -S ufw"));
+        m_statusLabel->setText(tr("UFW not installed — sudo pacman -S ufw"));
     } else {
         refresh();
     }
@@ -89,29 +85,21 @@ void FirewallPage::onToggleFirewall(bool checked)
 {
     m_toggle->setEnabled(false);
     m_ufw->setEnabled(checked);
-    // UFWManager::statusChanged re-enables the toggle on completion
     QTimer::singleShot(8000, this, [this]() {
-        // Fallback: re-enable if signal never arrived
-        if (!m_toggle->isEnabled()) {
-            m_toggle->setEnabled(true);
-            refresh();
-        }
+        if (!m_toggle->isEnabled()) { m_toggle->setEnabled(true); refresh(); }
     });
 }
 
-void FirewallPage::onRefreshRules()
-{
-    m_rulesView->setPlainText(m_ufw->rulesOutput());
-}
+void FirewallPage::onRefreshRules()   { m_rulesView->setPlainText(m_ufw->rulesOutput()); }
 
 void FirewallPage::updateStatusLabel(bool enabled)
 {
     QPalette p = m_statusLabel->palette();
     if (enabled) {
-        m_statusLabel->setText(tr("✓  Firewall ACTIVO"));
+        m_statusLabel->setText(tr("✓  Firewall is ACTIVE"));
         p.setColor(QPalette::WindowText, QColor(0x2E, 0x7D, 0x32));
     } else {
-        m_statusLabel->setText(tr("✗  Firewall INACTIVO"));
+        m_statusLabel->setText(tr("✗  Firewall is INACTIVE"));
         p.setColor(QPalette::WindowText, QColor(0xC6, 0x28, 0x28));
     }
     m_statusLabel->setPalette(p);

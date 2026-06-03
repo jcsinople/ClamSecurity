@@ -5,6 +5,7 @@
 #include "SystemChecker.h"
 #include "AutostartManager.h"
 #include "NotificationService.h"
+#include "LanguageManager.h"
 #include "MonitorWidget.h"
 #include "ModuleCard.h"
 #include "DetailsDialog.h"
@@ -63,6 +64,7 @@ void MainWindow::setupManagers()
     m_autostart = new AutostartManager(this);
     m_notif     = new NotificationService(this);
     m_checker   = new SystemChecker(m_clam, m_ufw, m_quar, this);
+    m_langMgr   = new LanguageManager(qApp, this);
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ void MainWindow::setupUI()
     m_exclusionsPage = new ExclusionsPage(m_clam);
     m_quarantinePage = new QuarantinePage(m_quar);
     m_firewallPage   = new FirewallPage(m_ufw);
-    m_settingsPage   = new SettingsPage(m_autostart, m_clam);
+    m_settingsPage   = new SettingsPage(m_autostart, m_clam, m_langMgr);
 
     m_stack->addWidget(buildOverviewPage());  // index 0
     m_stack->addWidget(m_scanPage);           // 1
@@ -90,11 +92,11 @@ void MainWindow::setupUI()
     setCentralWidget(m_stack);
 
     // Toolbar with back button
-    m_toolbar = addToolBar(tr("Navegación"));
+    m_toolbar = addToolBar(tr("Navigation"));
     m_toolbar->setMovable(false);
     m_toolbar->setVisible(false);
     m_actBack = m_toolbar->addAction(
-        QIcon::fromTheme("go-previous"), tr("Volver al inicio"));
+        QIcon::fromTheme("go-previous"), tr("Back to overview"));
     connect(m_actBack, &QAction::triggered, this, &MainWindow::navigateBack);
 }
 
@@ -115,7 +117,7 @@ QWidget *MainWindow::buildOverviewPage()
     auto *statusBox = new QVBoxLayout;
     statusBox->setSpacing(8);
 
-    m_statusLabel = new QLabel(tr("Verificando..."), page);
+    m_statusLabel = new QLabel(tr("Checking…"), page);
     QFont bigFont = m_statusLabel->font();
     bigFont.setPointSize(18);
     bigFont.setBold(true);
@@ -125,7 +127,7 @@ QWidget *MainWindow::buildOverviewPage()
     m_statusSub = new QLabel(page);
     m_statusSub->setWordWrap(true);
 
-    m_btnDetails = new QPushButton(tr("Ver Detalles..."), page);
+    m_btnDetails = new QPushButton(tr("View Details…"), page);
     m_btnDetails->setFixedWidth(160);
 
     statusBox->addStretch();
@@ -157,18 +159,18 @@ QWidget *MainWindow::buildOverviewPage()
         return card;
     };
 
-    m_cardScan  = makeCard("system-search",          tr("Escaneo"),
-                            tr("Escanear archivos"), Page::Scan);
-    m_cardDB    = makeCard("system-software-update", tr("Actualización"),
-                            tr("Base de datos"),     Page::Database);
-    m_cardExcl  = makeCard("folder-open",            tr("Exclusiones"),
-                            tr("Rutas excluidas"),   Page::Exclusions);
-    m_cardQuar  = makeCard("security-low",           tr("Cuarentena"),
-                            tr("Archivos aislados"), Page::Quarantine);
+    m_cardScan  = makeCard("system-search",          tr("Scan"),
+                            tr("Scan files"),        Page::Scan);
+    m_cardDB    = makeCard("system-software-update", tr("Database"),
+                            tr("Signatures"),        Page::Database);
+    m_cardExcl  = makeCard("folder-open",            tr("Exclusions"),
+                            tr("Excluded paths"),    Page::Exclusions);
+    m_cardQuar  = makeCard("security-low",           tr("Quarantine"),
+                            tr("Isolated files"),    Page::Quarantine);
     m_cardFW    = makeCard("network-firewall",       tr("Firewall"),
-                            tr("Control UFW"),       Page::Firewall);
-    m_cardConf  = makeCard("configure",              tr("Configuración"),
-                            tr("Ajustes de la app"), Page::Settings);
+                            tr("UFW control"),       Page::Firewall);
+    m_cardConf  = makeCard("configure",              tr("Settings"),
+                            tr("App settings"),      Page::Settings);
 
     grid->addWidget(m_cardScan,  0, 0);
     grid->addWidget(m_cardDB,    0, 1);
@@ -197,22 +199,22 @@ void MainWindow::setupTray()
     m_trayMenu = new QMenu(this);
 
     auto *actShow = m_trayMenu->addAction(
-        QIcon::fromTheme("security-high"), tr("Abrir ClamSecurity"));
+        QIcon::fromTheme("security-high"), tr("Open ClamSecurity"));
     m_trayMenu->addSeparator();
 
     auto *actScanHome = m_trayMenu->addAction(
-        QIcon::fromTheme("system-search"), tr("Escanear HOME"));
+        QIcon::fromTheme("system-search"), tr("Scan HOME"));
     auto *actUpdate = m_trayMenu->addAction(
-        QIcon::fromTheme("system-software-update"), tr("Actualizar firmas"));
+        QIcon::fromTheme("system-software-update"), tr("Update signatures"));
 
     m_trayMenu->addSeparator();
     m_trayActRealtime = m_trayMenu->addAction(
-        QIcon::fromTheme("media-record"), tr("Protección en Tiempo Real"));
+        QIcon::fromTheme("media-record"), tr("Real-Time Protection"));
     m_trayActRealtime->setCheckable(true);
 
     m_trayMenu->addSeparator();
     auto *actQuit = m_trayMenu->addAction(
-        QIcon::fromTheme("application-exit"), tr("Salir"));
+        QIcon::fromTheme("application-exit"), tr("Quit"));
 
     m_tray->setContextMenu(m_trayMenu);
     m_tray->show();
@@ -270,8 +272,8 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     m_monitor->setStatus(ok ? MonitorWidget::Status::Protected
                             : MonitorWidget::Status::Alert);
 
-    m_statusLabel->setText(ok ? tr("Tu equipo está protegido")
-                              : tr("Atención: Se requiere acción"));
+    m_statusLabel->setText(ok ? tr("Your computer is protected")
+                              : tr("Attention: Action required"));
 
     QPalette p = m_statusLabel->palette();
     p.setColor(QPalette::WindowText,
@@ -279,7 +281,7 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     m_statusLabel->setPalette(p);
 
     if (status.issues.isEmpty())
-        m_statusSub->setText(tr("Todos los componentes funcionan correctamente."));
+        m_statusSub->setText(tr("All components are working correctly."));
     else
         m_statusSub->setText(status.issues.join("\n"));
 
@@ -299,19 +301,20 @@ void MainWindow::updateCardSubtitles(const SystemStatus &status)
     };
 
     setCard(m_cardDB,   status.signaturesRecent
-                        ? tr("Actualizada")     : tr("Desactualizada"),
+                        ? tr("Up to date")   : tr("Outdated"),
             status.signaturesRecent);
     setCard(m_cardScan, status.clamavInstalled
-                        ? tr("ClamAV listo")    : tr("ClamAV no instalado"),
+                        ? tr("ClamAV ready") : tr("Not installed"),
             status.clamavInstalled);
-    setCard(m_cardQuar, tr("%1 archivo(s)").arg(m_quar->entryCount()),
+    setCard(m_cardQuar,
+            tr("%n file(s)", nullptr, m_quar->entryCount()),
             m_quar->entryCount() == 0);
     setCard(m_cardFW,   status.firewallEnabled
-                        ? tr("Activo")          : tr("Inactivo"),
+                        ? tr("Active")       : tr("Inactive"),
             status.firewallEnabled);
 
     QStringList exclList = m_clam->exclusions();
-    m_cardExcl->setSubtitle(tr("%1 ruta(s) excluida(s)").arg(exclList.size()));
+    m_cardExcl->setSubtitle(tr("%n excluded path(s)", nullptr, exclList.size()));
     m_cardExcl->setStatusColor(palette().color(QPalette::Text));
 }
 
@@ -400,7 +403,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     event->ignore();
     m_tray->showMessage(
         tr("ClamSecurity"),
-        tr("La aplicación sigue activa en el System Tray."),
+        tr("ClamSecurity is still running in the System Tray."),
         QSystemTrayIcon::Information, 3000);
 }
 

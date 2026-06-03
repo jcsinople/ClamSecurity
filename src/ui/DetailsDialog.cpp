@@ -9,21 +9,20 @@ static const QString ROW_FAIL = "✗  %1";
 
 DetailsDialog::DetailsDialog(QWidget *parent) : QDialog(parent)
 {
-    setWindowTitle(tr("Estado del Sistema"));
-    setMinimumWidth(400);
+    setWindowTitle(tr("System Status"));
+    setMinimumWidth(420);
     setModal(true);
 
     auto *layout = new QVBoxLayout(this);
-
-    auto *group = new QGroupBox(tr("Componentes de Seguridad"), this);
-    auto *gl    = new QVBoxLayout(group);
+    auto *group  = new QGroupBox(tr("Security Components"), this);
+    auto *gl     = new QVBoxLayout(group);
     gl->setSpacing(10);
 
-    m_clamavRow    = makeRow(tr("ClamAV instalado"));
-    m_daemonRow    = makeRow(tr("Protección en Tiempo Real (daemon)"));
-    m_sigRow       = makeRow(tr("Base de datos de firmas reciente"));
-    m_firewallRow  = makeRow(tr("Firewall (UFW) activo"));
-    m_quarantineRow = makeRow(tr("Sin archivos en cuarentena"));
+    m_clamavRow     = makeRow(tr("ClamAV installed"));
+    m_daemonRow     = makeRow(tr("Real-Time Protection (daemon)"));
+    m_sigRow        = makeRow(tr("Signature database up to date"));
+    m_firewallRow   = makeRow(tr("Firewall (UFW) active"));
+    m_quarantineRow = makeRow(tr("No files in quarantine"));
 
     gl->addWidget(m_clamavRow);
     gl->addWidget(m_daemonRow);
@@ -41,24 +40,24 @@ DetailsDialog::DetailsDialog(QWidget *parent) : QDialog(parent)
 void DetailsDialog::updateStatus(const SystemStatus &status)
 {
     setRowStatus(m_clamavRow, status.clamavInstalled,
-                 tr("ClamAV instalado"),
-                 tr("ClamAV NO instalado — instala con: sudo pacman -S clamav"));
+                 tr("ClamAV installed"),
+                 tr("ClamAV NOT installed — run: sudo pacman -S clamav"));
 
     setRowStatus(m_daemonRow, status.daemonRunning,
-                 tr("Protección en Tiempo Real activa"),
-                 tr("Daemon clamav-daemon inactivo"));
+                 tr("Real-Time Protection active"),
+                 tr("clamav-daemon is not running"));
 
     setRowStatus(m_sigRow, status.signaturesRecent,
-                 tr("Firmas actualizadas (< 7 días)"),
-                 tr("Firmas desactualizadas — actualiza las firmas"));
+                 tr("Signatures up to date (< 7 days)"),
+                 tr("Signatures outdated — update them now"));
 
     setRowStatus(m_firewallRow, status.firewallEnabled,
-                 tr("Firewall UFW activo"),
-                 tr("Firewall desactivado"));
+                 tr("UFW firewall active"),
+                 tr("Firewall is disabled"));
 
     setRowStatus(m_quarantineRow, status.quarantineClean,
-                 tr("Sin archivos en cuarentena"),
-                 tr("Hay archivos en cuarentena pendientes de revisión"));
+                 tr("No files in quarantine"),
+                 tr("Files in quarantine need review"));
 }
 
 QLabel *DetailsDialog::makeRow(const QString &text)

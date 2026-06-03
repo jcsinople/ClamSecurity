@@ -4,9 +4,11 @@
 #include <QRadioButton>
 #include <QPushButton>
 #include <QButtonGroup>
+#include <QComboBox>
 
 class AutostartManager;
 class ClamAvManager;
+class LanguageManager;
 
 class SettingsPage : public QWidget
 {
@@ -14,6 +16,7 @@ class SettingsPage : public QWidget
 public:
     explicit SettingsPage(AutostartManager *autostart,
                           ClamAvManager    *clam,
+                          LanguageManager  *langMgr,
                           QWidget *parent = nullptr);
 
     void refresh();
@@ -26,12 +29,14 @@ private slots:
     void onAutostartToggled(bool checked);
     void onStartHiddenToggled(bool checked);
     void onThemeChanged(int id);
+    void onLanguageChanged(int index);
     void onRestartDaemon();
     void onInstallServiceMenu();
 
 private:
     AutostartManager *m_autostart;
     ClamAvManager    *m_clam;
+    LanguageManager  *m_langMgr;
 
     QCheckBox     *m_chkAutostart;
     QCheckBox     *m_chkStartHidden;
@@ -39,6 +44,7 @@ private:
     QRadioButton  *m_radioSystem;
     QRadioButton  *m_radioLight;
     QRadioButton  *m_radioDark;
+    QComboBox     *m_langCombo;
     QPushButton   *m_btnRestartDaemon;
     QPushButton   *m_btnInstallMenu;
     QPushButton   *m_btnBack;

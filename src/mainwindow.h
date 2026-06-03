@@ -8,8 +8,10 @@
 #include <QToolBar>
 #include <QAction>
 #include "SystemChecker.h"
+#include "LanguageManager.h"
 
 class MonitorWidget;
+class ModuleCard;
 class ClamAvManager;
 class UFWManager;
 class QuarantineManager;
@@ -75,7 +77,8 @@ private:
     QuarantineManager *m_quar;
     AutostartManager  *m_autostart;
     NotificationService *m_notif;
-    SystemChecker     *m_checker;
+    SystemChecker       *m_checker;
+    LanguageManager     *m_langMgr;
 
     // UI
     QStackedWidget *m_stack;
