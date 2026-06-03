@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=KonqPopupMenu/Plugin
+MimeType=all/all;
+Actions=ScanWithClamSecurity;
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=
+
+[Desktop Action ScanWithClamSecurity]
+Name=Escanear con ClamSecurity
+Name[es]=Escanear con ClamSecurity
+Icon=security-high
+Exec=ClamSecurity --scan %f
