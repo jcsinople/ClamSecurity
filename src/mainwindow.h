@@ -26,16 +26,19 @@ class QuarantinePage;
 class FirewallPage;
 class SettingsPage;
 class ActiveThreatsPage;
+class ScheduledScansPage;
+class SchedulerManager;
 
 enum class Page {
-    Overview       = 0,
-    Scan           = 1,
-    Database       = 2,
-    Exclusions     = 3,
-    Quarantine     = 4,
-    Firewall       = 5,
-    Settings       = 6,
-    ActiveThreats  = 7
+    Overview        = 0,
+    Scan            = 1,
+    Database        = 2,
+    Exclusions      = 3,
+    Quarantine      = 4,
+    Firewall        = 5,
+    Settings        = 6,
+    ActiveThreats   = 7,
+    ScheduledScans  = 8
 };
 
 class MainWindow : public QMainWindow
@@ -84,6 +87,7 @@ private:
     SystemChecker       *m_checker;
     LanguageManager     *m_langMgr;
     ClamdConfigManager  *m_cfgMgr;
+    SchedulerManager    *m_schedMgr;
 
     // UI
     QStackedWidget *m_stack;
@@ -114,7 +118,8 @@ private:
     QuarantinePage    *m_quarantinePage;
     FirewallPage      *m_firewallPage;
     SettingsPage      *m_settingsPage;
-    ActiveThreatsPage *m_activeThreatsPage;
+    ActiveThreatsPage    *m_activeThreatsPage;
+    ScheduledScansPage   *m_scheduledScansPage;
 
     // Tray
     QSystemTrayIcon *m_tray;

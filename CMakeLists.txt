@@ -50,6 +50,10 @@ set(PROJECT_SOURCES
     src/ui/SettingsPage.cpp
     src/ui/ActiveThreatsPage.h
     src/ui/ActiveThreatsPage.cpp
+    src/ui/ScheduledScansPage.h
+    src/ui/ScheduledScansPage.cpp
+    src/managers/SchedulerManager.h
+    src/managers/SchedulerManager.cpp
     resources/ClamSecurity.qrc
 )
 

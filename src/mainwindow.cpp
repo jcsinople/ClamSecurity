@@ -17,6 +17,8 @@
 #include "FirewallPage.h"
 #include "SettingsPage.h"
 #include "ActiveThreatsPage.h"
+#include "ScheduledScansPage.h"
+#include "SchedulerManager.h"
 
 #include <QDir>
 #include <QTimer>
@@ -67,6 +69,7 @@ void MainWindow::setupManagers()
     m_autostart = new AutostartManager(this);
     m_notif     = new NotificationService(this);
     m_cfgMgr    = new ClamdConfigManager(this);
+    m_schedMgr  = new SchedulerManager(this);
     m_checker   = new SystemChecker(m_clam, m_ufw, m_quar, this);
     m_langMgr   = new LanguageManager(qApp, this);
 }
@@ -84,16 +87,18 @@ void MainWindow::setupUI()
     m_quarantinePage    = new QuarantinePage(m_quar);
     m_firewallPage      = new FirewallPage(m_ufw);
     m_settingsPage      = new SettingsPage(m_autostart, m_clam, m_langMgr, m_cfgMgr);
-    m_activeThreatsPage = new ActiveThreatsPage(m_quar, m_clam);
+    m_activeThreatsPage  = new ActiveThreatsPage(m_quar, m_clam);
+    m_scheduledScansPage = new ScheduledScansPage(m_schedMgr);
 
-    m_stack->addWidget(buildOverviewPage());    // index 0
-    m_stack->addWidget(m_scanPage);             // 1
+    m_stack->addWidget(buildOverviewPage());     // index 0
+    m_stack->addWidget(m_scanPage);              // 1
     m_stack->addWidget(m_dbPage);               // 2
-    m_stack->addWidget(m_exclusionsPage);       // 3
-    m_stack->addWidget(m_quarantinePage);       // 4
-    m_stack->addWidget(m_firewallPage);         // 5
-    m_stack->addWidget(m_settingsPage);         // 6
-    m_stack->addWidget(m_activeThreatsPage);    // 7
+    m_stack->addWidget(m_exclusionsPage);        // 3
+    m_stack->addWidget(m_quarantinePage);        // 4
+    m_stack->addWidget(m_firewallPage);          // 5
+    m_stack->addWidget(m_settingsPage);          // 6
+    m_stack->addWidget(m_activeThreatsPage);     // 7
+    m_stack->addWidget(m_scheduledScansPage);    // 8
 
     setCentralWidget(m_stack);
 
@@ -187,16 +192,10 @@ QWidget *MainWindow::buildOverviewPage()
                             tr("UFW control"),       Page::Firewall);
     m_cardConf  = makeCard("configure",              tr("Settings"),
                             tr("App settings"),      Page::Settings);
-    m_cardActiveThreats = makeCard("dialog-warning", tr("Active Threats"),
+    m_cardActiveThreats = makeCard("dialog-warning",   tr("Active Threats"),
                             tr("Real-time detections"), Page::ActiveThreats);
-
-    // Scheduler placeholder (disabled)
-    m_cardScheduler = new ModuleCard("appointment-new",
-                                     tr("Scheduler"),
-                                     tr("Coming soon"), page);
-    m_cardScheduler->setEnabled(false);
-    m_cardScheduler->setToolTip(
-        tr("Scheduled scans – coming in a future version"));
+    m_cardScheduler     = makeCard("appointment-new",   tr("Scheduler"),
+                            tr("Automatic scans"),      Page::ScheduledScans);
 
     // Row 0: Scan, Database, Exclusions, Quarantine
     grid->addWidget(m_cardScan,  0, 0);
@@ -322,7 +321,9 @@ void MainWindow::connectSignals()
             this, &MainWindow::navigateBack);
     connect(m_settingsPage,       &SettingsPage::backRequested,
             this, &MainWindow::navigateBack);
-    connect(m_activeThreatsPage,  &ActiveThreatsPage::backRequested,
+    connect(m_activeThreatsPage,    &ActiveThreatsPage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_scheduledScansPage,   &ScheduledScansPage::backRequested,
             this, &MainWindow::navigateBack);
 
     connect(m_settingsPage, &SettingsPage::themeChangeRequested,
@@ -397,9 +398,13 @@ void MainWindow::updateCardSubtitles(const SystemStatus &status)
     m_cardExcl->setSubtitle(tr("%n excluded path(s)", nullptr, exclList.size()));
     m_cardExcl->setStatusColor(palette().color(QPalette::Text));
 
-    // Active threats card — show pending count from JSON
-    // Keep subtitle as-is if it already shows "New threat!" until navigated
-    // (subtitle is updated live when threats arrive and reset on navigation)
+    // Scheduler card
+    int schedCount = m_schedMgr->schedules().size();
+    m_cardScheduler->setSubtitle(
+        schedCount == 0
+            ? tr("No schedules")
+            : tr("%n schedule(s)", nullptr, schedCount));
+    m_cardScheduler->setStatusColor(palette().color(QPalette::Text));
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
@@ -419,9 +424,11 @@ void MainWindow::navigateTo(Page page)
     case Page::Settings:      m_settingsPage->refresh();       break;
     case Page::ActiveThreats:
         m_activeThreatsPage->refresh();
-        // Reset card subtitle after viewing
         m_cardActiveThreats->setSubtitle(tr("Real-time detections"));
         m_cardActiveThreats->setStatusColor(palette().color(QPalette::Text));
+        break;
+    case Page::ScheduledScans:
+        m_scheduledScansPage->refresh();
         break;
     default: break;
     }
