@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QProcess>
+#include <QSet>
 
 class NotificationService : public QObject
 {
@@ -24,5 +25,6 @@ private slots:
     void onJournalOutput();
 
 private:
-    QProcess *m_journalProcess = nullptr;
+    QProcess     *m_journalProcess = nullptr;
+    QSet<QString> m_recentThreats;   // deduplication
 };

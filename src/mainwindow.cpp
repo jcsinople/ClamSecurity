@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ClamAvManager.h"
+#include "ClamdConfigManager.h"
 #include "QuarantineManager.h"
 #include "UFWManager.h"
 #include "SystemChecker.h"
@@ -15,6 +16,7 @@
 #include "QuarantinePage.h"
 #include "FirewallPage.h"
 #include "SettingsPage.h"
+#include "ActiveThreatsPage.h"
 
 #include <QDir>
 #include <QTimer>
@@ -30,6 +32,7 @@
 #include <QStyle>
 #include <QStyleFactory>
 #include <QMessageBox>
+#include <QFileInfo>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -37,8 +40,8 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("ClamSecurity");
     setWindowIcon(QIcon::fromTheme("security-high",
                                    QIcon(":/icons/clamsecurity.svg")));
-    setMinimumSize(720, 560);
-    resize(800, 600);
+    resize(800, 640);
+    setFixedSize(800, 640);
 
     setupManagers();
     setupUI();
@@ -63,6 +66,7 @@ void MainWindow::setupManagers()
     m_quar      = new QuarantineManager(this);
     m_autostart = new AutostartManager(this);
     m_notif     = new NotificationService(this);
+    m_cfgMgr    = new ClamdConfigManager(this);
     m_checker   = new SystemChecker(m_clam, m_ufw, m_quar, this);
     m_langMgr   = new LanguageManager(qApp, this);
 }
@@ -74,20 +78,22 @@ void MainWindow::setupUI()
     m_stack = new QStackedWidget(this);
 
     // Build pages
-    m_scanPage       = new ScanPage(m_clam, m_quar);
-    m_dbPage         = new DatabasePage(m_clam);
-    m_exclusionsPage = new ExclusionsPage(m_clam);
-    m_quarantinePage = new QuarantinePage(m_quar);
-    m_firewallPage   = new FirewallPage(m_ufw);
-    m_settingsPage   = new SettingsPage(m_autostart, m_clam, m_langMgr);
+    m_scanPage          = new ScanPage(m_clam, m_quar);
+    m_dbPage            = new DatabasePage(m_clam);
+    m_exclusionsPage    = new ExclusionsPage(m_clam, m_cfgMgr);
+    m_quarantinePage    = new QuarantinePage(m_quar);
+    m_firewallPage      = new FirewallPage(m_ufw);
+    m_settingsPage      = new SettingsPage(m_autostart, m_clam, m_langMgr, m_cfgMgr);
+    m_activeThreatsPage = new ActiveThreatsPage(m_quar, m_clam);
 
-    m_stack->addWidget(buildOverviewPage());  // index 0
-    m_stack->addWidget(m_scanPage);           // 1
-    m_stack->addWidget(m_dbPage);             // 2
-    m_stack->addWidget(m_exclusionsPage);     // 3
-    m_stack->addWidget(m_quarantinePage);     // 4
-    m_stack->addWidget(m_firewallPage);       // 5
-    m_stack->addWidget(m_settingsPage);       // 6
+    m_stack->addWidget(buildOverviewPage());    // index 0
+    m_stack->addWidget(m_scanPage);             // 1
+    m_stack->addWidget(m_dbPage);               // 2
+    m_stack->addWidget(m_exclusionsPage);       // 3
+    m_stack->addWidget(m_quarantinePage);       // 4
+    m_stack->addWidget(m_firewallPage);         // 5
+    m_stack->addWidget(m_settingsPage);         // 6
+    m_stack->addWidget(m_activeThreatsPage);    // 7
 
     setCentralWidget(m_stack);
 
@@ -156,7 +162,7 @@ QWidget *MainWindow::buildOverviewPage()
     sep->setFrameShadow(QFrame::Sunken);
     layout->addWidget(sep);
 
-    // ── Module cards grid ────────────────────────────────────
+    // ── Module cards grid (4×2) ──────────────────────────────
     auto *grid = new QGridLayout;
     grid->setSpacing(14);
 
@@ -181,13 +187,27 @@ QWidget *MainWindow::buildOverviewPage()
                             tr("UFW control"),       Page::Firewall);
     m_cardConf  = makeCard("configure",              tr("Settings"),
                             tr("App settings"),      Page::Settings);
+    m_cardActiveThreats = makeCard("dialog-warning", tr("Active Threats"),
+                            tr("Real-time detections"), Page::ActiveThreats);
 
+    // Scheduler placeholder (disabled)
+    m_cardScheduler = new ModuleCard("appointment-new",
+                                     tr("Scheduler"),
+                                     tr("Coming soon"), page);
+    m_cardScheduler->setEnabled(false);
+    m_cardScheduler->setToolTip(
+        tr("Scheduled scans – coming in a future version"));
+
+    // Row 0: Scan, Database, Exclusions, Quarantine
     grid->addWidget(m_cardScan,  0, 0);
     grid->addWidget(m_cardDB,    0, 1);
     grid->addWidget(m_cardExcl,  0, 2);
-    grid->addWidget(m_cardQuar,  1, 0);
-    grid->addWidget(m_cardFW,    1, 1);
-    grid->addWidget(m_cardConf,  1, 2);
+    grid->addWidget(m_cardQuar,  0, 3);
+    // Row 1: Firewall, Settings, ActiveThreats, Scheduler
+    grid->addWidget(m_cardFW,           1, 0);
+    grid->addWidget(m_cardConf,         1, 1);
+    grid->addWidget(m_cardActiveThreats, 1, 2);
+    grid->addWidget(m_cardScheduler,    1, 3);
 
     layout->addLayout(grid);
     layout->addStretch();
@@ -195,7 +215,6 @@ QWidget *MainWindow::buildOverviewPage()
     connect(m_btnDetails, &QPushButton::clicked, this, &MainWindow::onShowDetails);
     connect(m_realtimeToggle, &QCheckBox::toggled, this, [this](bool checked) {
         m_realtimeToggle->setEnabled(false);
-        // ClamOnAcc (on-access). If not available, toggle the daemon instead.
         if (m_clam->isClamonaacAvailable())
             m_clam->setClamonaacEnabled(checked);
         else
@@ -258,21 +277,53 @@ void MainWindow::connectSignals()
     connect(m_checker, &SystemChecker::statusChanged,
             this, &MainWindow::onStatusChanged);
 
+    // Real-time threat detection: add to active threats + single notification
     connect(m_notif, &NotificationService::threatDetectedInLog,
-            this, [this](const QString &, const QString &threat) {
-        m_notif->send(tr("¡Amenaza detectada!"),
-                      tr("ClamAV bloqueó: %1").arg(threat),
+            this, [this](const QString &filePath, const QString &threat) {
+        // Add to persistent threat log
+        ActiveThreatsPage::addThreat(filePath, threat,
+                                     m_clam->isClamonaacRunning());
+        // Send one notification (deduplication is already done in NotificationService)
+        m_notif->send(tr("Threat detected!"),
+                      tr("ClamAV: %1 in %2").arg(threat,
+                          QFileInfo(filePath).fileName().isEmpty()
+                              ? filePath : QFileInfo(filePath).fileName()),
                       "security-low", 2);
+        // Update status
         m_checker->refresh();
+        // Update active threats card subtitle
+        if (m_cardActiveThreats) {
+            // We don't have a live count easily without reading JSON, just mark it
+            m_cardActiveThreats->setSubtitle(tr("New threat!"));
+            m_cardActiveThreats->setStatusColor(QColor(0xC6, 0x28, 0x28));
+        }
+    });
+
+    // Config saved notification
+    connect(m_cfgMgr, &ClamdConfigManager::configSaved,
+            this, [this](bool success, const QString &msg) {
+        if (!success) {
+            m_tray->showMessage(tr("ClamSecurity"),
+                                tr("Configuration error: %1").arg(msg),
+                                QSystemTrayIcon::Warning, 4000);
+        }
     });
 
     // Back navigation from each page
-    connect(m_scanPage,       &ScanPage::backRequested,       this, &MainWindow::navigateBack);
-    connect(m_dbPage,         &DatabasePage::backRequested,   this, &MainWindow::navigateBack);
-    connect(m_exclusionsPage, &ExclusionsPage::backRequested, this, &MainWindow::navigateBack);
-    connect(m_quarantinePage, &QuarantinePage::backRequested, this, &MainWindow::navigateBack);
-    connect(m_firewallPage,   &FirewallPage::backRequested,   this, &MainWindow::navigateBack);
-    connect(m_settingsPage,   &SettingsPage::backRequested,   this, &MainWindow::navigateBack);
+    connect(m_scanPage,           &ScanPage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_dbPage,             &DatabasePage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_exclusionsPage,     &ExclusionsPage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_quarantinePage,     &QuarantinePage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_firewallPage,       &FirewallPage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_settingsPage,       &SettingsPage::backRequested,
+            this, &MainWindow::navigateBack);
+    connect(m_activeThreatsPage,  &ActiveThreatsPage::backRequested,
+            this, &MainWindow::navigateBack);
 
     connect(m_settingsPage, &SettingsPage::themeChangeRequested,
             this, &MainWindow::applyTheme);
@@ -312,8 +363,6 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
         ok ? "security-high" : "security-low",
         QIcon(":/icons/clamsecurity.svg")));
 
-    // Sync real-time protection toggles (overview + tray)
-    // Use clamonacc status when available, daemon otherwise
     bool rtActive = status.realtimeAvailable ? status.realtimeRunning
                                              : status.daemonRunning;
     m_realtimeToggle->blockSignals(true);
@@ -347,6 +396,10 @@ void MainWindow::updateCardSubtitles(const SystemStatus &status)
     QStringList exclList = m_clam->exclusions();
     m_cardExcl->setSubtitle(tr("%n excluded path(s)", nullptr, exclList.size()));
     m_cardExcl->setStatusColor(palette().color(QPalette::Text));
+
+    // Active threats card — show pending count from JSON
+    // Keep subtitle as-is if it already shows "New threat!" until navigated
+    // (subtitle is updated live when threats arrive and reset on navigation)
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
@@ -359,11 +412,17 @@ void MainWindow::navigateTo(Page page)
 
     // Refresh data when entering a page
     switch (page) {
-    case Page::Database:   m_dbPage->refresh();         break;
-    case Page::Exclusions: m_exclusionsPage->refresh(); break;
-    case Page::Quarantine: m_quarantinePage->refresh(); break;
-    case Page::Firewall:   m_firewallPage->refresh();   break;
-    case Page::Settings:   m_settingsPage->refresh();   break;
+    case Page::Database:      m_dbPage->refresh();             break;
+    case Page::Exclusions:    m_exclusionsPage->refresh();     break;
+    case Page::Quarantine:    m_quarantinePage->refresh();     break;
+    case Page::Firewall:      m_firewallPage->refresh();       break;
+    case Page::Settings:      m_settingsPage->refresh();       break;
+    case Page::ActiveThreats:
+        m_activeThreatsPage->refresh();
+        // Reset card subtitle after viewing
+        m_cardActiveThreats->setSubtitle(tr("Real-time detections"));
+        m_cardActiveThreats->setStatusColor(palette().color(QPalette::Text));
+        break;
     default: break;
     }
 }
@@ -447,10 +506,8 @@ void MainWindow::applyTheme(int theme)
 {
     QPalette pal;
     if (theme == 1) {
-        // Light
         pal = QStyleFactory::create("Fusion")->standardPalette();
     } else if (theme == 2) {
-        // Dark
         pal = QStyleFactory::create("Fusion")->standardPalette();
         pal.setColor(QPalette::Window,          QColor(0x2D, 0x2D, 0x2D));
         pal.setColor(QPalette::WindowText,      Qt::white);
@@ -465,13 +522,12 @@ void MainWindow::applyTheme(int theme)
         pal.setColor(QPalette::Dark,            QColor(0x20, 0x20, 0x20));
         pal.setColor(QPalette::Shadow,          QColor(0x10, 0x10, 0x10));
     } else {
-        // System default
         pal = QApplication::style()->standardPalette();
     }
     QApplication::setPalette(pal);
 }
 
-// ─── startScanWithPath (called from main.cpp for --scan argument) ─────────────
+// ─── startScanWithPath ────────────────────────────────────────────────────────
 
 void MainWindow::startScanWithPath(const QString &path)
 {

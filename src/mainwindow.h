@@ -18,21 +18,24 @@ class UFWManager;
 class QuarantineManager;
 class AutostartManager;
 class NotificationService;
+class ClamdConfigManager;
 class ScanPage;
 class DatabasePage;
 class ExclusionsPage;
 class QuarantinePage;
 class FirewallPage;
 class SettingsPage;
+class ActiveThreatsPage;
 
 enum class Page {
-    Overview  = 0,
-    Scan      = 1,
-    Database  = 2,
-    Exclusions = 3,
-    Quarantine = 4,
-    Firewall  = 5,
-    Settings  = 6
+    Overview       = 0,
+    Scan           = 1,
+    Database       = 2,
+    Exclusions     = 3,
+    Quarantine     = 4,
+    Firewall       = 5,
+    Settings       = 6,
+    ActiveThreats  = 7
 };
 
 class MainWindow : public QMainWindow
@@ -73,13 +76,14 @@ private:
     QWidget *buildOverviewPage();
 
     // Core managers
-    ClamAvManager     *m_clam;
-    UFWManager        *m_ufw;
-    QuarantineManager *m_quar;
-    AutostartManager  *m_autostart;
+    ClamAvManager      *m_clam;
+    UFWManager         *m_ufw;
+    QuarantineManager  *m_quar;
+    AutostartManager   *m_autostart;
     NotificationService *m_notif;
     SystemChecker       *m_checker;
     LanguageManager     *m_langMgr;
+    ClamdConfigManager  *m_cfgMgr;
 
     // UI
     QStackedWidget *m_stack;
@@ -100,14 +104,17 @@ private:
     ModuleCard *m_cardQuar;
     ModuleCard *m_cardFW;
     ModuleCard *m_cardConf;
+    ModuleCard *m_cardActiveThreats;
+    ModuleCard *m_cardScheduler;
 
     // Module pages
-    ScanPage       *m_scanPage;
-    DatabasePage   *m_dbPage;
-    ExclusionsPage *m_exclusionsPage;
-    QuarantinePage *m_quarantinePage;
-    FirewallPage   *m_firewallPage;
-    SettingsPage   *m_settingsPage;
+    ScanPage          *m_scanPage;
+    DatabasePage      *m_dbPage;
+    ExclusionsPage    *m_exclusionsPage;
+    QuarantinePage    *m_quarantinePage;
+    FirewallPage      *m_firewallPage;
+    SettingsPage      *m_settingsPage;
+    ActiveThreatsPage *m_activeThreatsPage;
 
     // Tray
     QSystemTrayIcon *m_tray;

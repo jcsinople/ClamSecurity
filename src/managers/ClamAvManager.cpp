@@ -192,3 +192,30 @@ void ClamAvManager::removeExclusion(const QString &path)
     ex.removeAll(path);
     setExclusions(ex);
 }
+
+// ── extension exclusions ──────────────────────────────────────────────────────
+
+QStringList ClamAvManager::excludedExtensions() const
+{
+    QSettings s;
+    return s.value("scan/extension_exclusions",
+                   QStringList{".crdownload", ".part"}).toStringList();
+}
+
+void ClamAvManager::addExcludedExtension(const QString &ext)
+{
+    QStringList exts = excludedExtensions();
+    if (!exts.contains(ext)) {
+        exts << ext;
+        QSettings s;
+        s.setValue("scan/extension_exclusions", exts);
+    }
+}
+
+void ClamAvManager::removeExcludedExtension(const QString &ext)
+{
+    QStringList exts = excludedExtensions();
+    exts.removeAll(ext);
+    QSettings s;
+    s.setValue("scan/extension_exclusions", exts);
+}

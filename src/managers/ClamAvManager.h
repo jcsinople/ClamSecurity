@@ -35,6 +35,11 @@ public:
     void addExclusion(const QString &path);
     void removeExclusion(const QString &path);
 
+    // Extension exclusions for both manual scan and on-access
+    QStringList excludedExtensions() const;
+    void addExcludedExtension(const QString &ext);
+    void removeExcludedExtension(const QString &ext);
+
 signals:
     void updateOutput(const QString &line);
     void updateFinished(bool success, const QString &message);

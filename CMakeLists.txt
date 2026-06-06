@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets DBus Concurrent LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets DBus Concurrent Network LinguistTools)
 
 set(PROJECT_SOURCES
     src/main.cpp
@@ -22,6 +22,8 @@ set(PROJECT_SOURCES
     src/managers/SystemChecker.cpp
     src/managers/AutostartManager.h
     src/managers/AutostartManager.cpp
+    src/managers/ClamdConfigManager.h
+    src/managers/ClamdConfigManager.cpp
     src/workers/ScanWorker.h
     src/workers/ScanWorker.cpp
     src/core/NotificationService.h
@@ -46,6 +48,8 @@ set(PROJECT_SOURCES
     src/ui/FirewallPage.cpp
     src/ui/SettingsPage.h
     src/ui/SettingsPage.cpp
+    src/ui/ActiveThreatsPage.h
+    src/ui/ActiveThreatsPage.cpp
     resources/ClamSecurity.qrc
 )
 
@@ -65,6 +69,7 @@ target_link_libraries(ClamSecurity PRIVATE
     Qt6::Widgets
     Qt6::DBus
     Qt6::Concurrent
+    Qt6::Network
 )
 
 # ── Internationalization ─────────────────────────────────────────────────────

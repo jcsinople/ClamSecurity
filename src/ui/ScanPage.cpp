@@ -158,7 +158,8 @@ void ScanPage::onTotalCountReady()
     m_statusLabel->setText(tr("Scanning…"));
 
     m_thread = new QThread(this);
-    m_worker = new ScanWorker(m_currentPath, m_clam->exclusions());
+    m_worker = new ScanWorker(m_currentPath, m_clam->exclusions(),
+                              m_clam->excludedExtensions());
     m_worker->moveToThread(m_thread);
 
     connect(m_thread, &QThread::started,         m_worker, &ScanWorker::startScan);

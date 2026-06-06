@@ -4,8 +4,10 @@
 
 ScanWorker::ScanWorker(const QString &path,
                        const QStringList &exclusions,
+                       const QStringList &extensionExclusions,
                        QObject *parent)
-    : QObject(parent), m_path(path), m_exclusions(exclusions) {}
+    : QObject(parent), m_path(path), m_exclusions(exclusions),
+      m_extensionExclusions(extensionExclusions) {}
 
 void ScanWorker::startScan()
 {
@@ -38,6 +40,13 @@ void ScanWorker::startScan()
         else
             args << ("--exclude=" + QFileInfo(excl).fileName());
     }
+
+    // Extension exclusions (e.g. ".crdownload" → "--exclude=*.crdownload")
+    for (const QString &ext : m_extensionExclusions) {
+        QString pattern = ext.startsWith('.') ? "*" + ext : "*." + ext;
+        args << ("--exclude=" + pattern);
+    }
+
     args << m_path;
 
     m_process->start("clamscan", args);

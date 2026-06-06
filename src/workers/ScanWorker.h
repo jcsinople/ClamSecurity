@@ -11,6 +11,7 @@ class ScanWorker : public QObject
 public:
     explicit ScanWorker(const QString &path,
                         const QStringList &exclusions,
+                        const QStringList &extensionExclusions = {},
                         QObject *parent = nullptr);
 
 public slots:
@@ -32,6 +33,7 @@ private slots:
 private:
     QString     m_path;
     QStringList m_exclusions;
+    QStringList m_extensionExclusions;
     QProcess   *m_process    = nullptr;
     int         m_filesScanned = 0;
     int         m_infected     = 0;

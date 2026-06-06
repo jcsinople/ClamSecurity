@@ -69,6 +69,7 @@ DatabasePage::DatabasePage(ClamAvManager *clam, QWidget *parent)
 
 void DatabasePage::refresh()
 {
+    m_outputLog->clear();
     QDateTime sigDate = m_clam->signatureDate();
     if (sigDate.isValid()) {
         int days = sigDate.daysTo(QDateTime::currentDateTime());

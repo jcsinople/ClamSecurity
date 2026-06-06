@@ -1,6 +1,8 @@
 #include "NotificationService.h"
 #include <QDBusInterface>
 #include <QVariantMap>
+#include <QTimer>
+#include <QRegularExpression>
 
 NotificationService::NotificationService(QObject *parent) : QObject(parent) {}
 
@@ -60,18 +62,45 @@ void NotificationService::onJournalOutput()
 {
     while (m_journalProcess->canReadLine()) {
         QString line = QString::fromUtf8(m_journalProcess->readLine()).trimmed();
-        if (line.contains("FOUND") || line.contains("Threat found")) {
-            QString threat;
-            int idx = line.lastIndexOf("FOUND");
-            if (idx > 0) {
-                QString part = line.left(idx).trimmed();
+        if (!line.contains("FOUND") && !line.contains("Threat found"))
+            continue;
+
+        // Format: "... some: /path/to/file: ThreatName FOUND"
+        QString filePath;
+        QString threat;
+
+        // Try to parse "path: threat FOUND"
+        static QRegularExpression re(R"(:\s*(/[^:]+):\s+(.+)\s+FOUND)");
+        auto match = re.match(line);
+        if (match.hasMatch()) {
+            filePath = match.captured(1).trimmed();
+            threat   = match.captured(2).trimmed();
+        } else {
+            // Fallback: try last colon before FOUND
+            int foundIdx = line.lastIndexOf(" FOUND");
+            if (foundIdx > 0) {
+                QString part = line.left(foundIdx).trimmed();
                 int colon = part.lastIndexOf(':');
-                if (colon > 0) threat = part.mid(colon + 1).trimmed();
+                if (colon > 0) {
+                    threat   = part.mid(colon + 1).trimmed();
+                    filePath = part.left(colon).trimmed();
+                }
             }
-            emit threatDetectedInLog("(real-time)", threat);
-            send(tr("Threat detected!"),
-                 tr("ClamAV blocked: %1").arg(threat.isEmpty() ? line : threat),
-                 "security-low", 2);
         }
+
+        if (filePath.isEmpty())
+            filePath = "(real-time)";
+
+        // Deduplication: skip if same file was seen within the last 15 seconds
+        if (m_recentThreats.contains(filePath))
+            continue;
+
+        m_recentThreats.insert(filePath);
+        QTimer::singleShot(15000, this, [this, filePath]() {
+            m_recentThreats.remove(filePath);
+        });
+
+        // Emit only — mainwindow handles the notification to avoid duplicates
+        emit threatDetectedInLog(filePath, threat);
     }
 }
