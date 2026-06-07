@@ -75,7 +75,7 @@ SettingsPage::SettingsPage(AutostartManager   *autostart,
     navRow->addStretch();
     outerLayout->addLayout(navRow);
 
-    connect(m_btnBack, &QPushButton::clicked, this, &SettingsPage::backRequested);
+    connect(m_btnBack, &QPushButton::clicked, this, &SettingsPage::onBackRequested);
 
     refresh();
 }
@@ -374,6 +374,20 @@ void SettingsPage::buildProtectionTab(QWidget *tab)
                    success ? QColor(0x2E, 0x7D, 0x32) : QColor(0xC6, 0x28, 0x28));
         m_lblProtStatus->setPalette(p);
     });
+
+    // Track unsaved changes
+    connect(m_spinMaxFileSize, qOverload<int>(&QSpinBox::valueChanged),
+            this, &SettingsPage::markProtectionDirty);
+    connect(m_spinMaxThreads, qOverload<int>(&QSpinBox::valueChanged),
+            this, &SettingsPage::markProtectionDirty);
+    connect(m_chkDenyOnError,   &QCheckBox::toggled, this, &SettingsPage::markProtectionDirty);
+    connect(m_chkExtraScanning, &QCheckBox::toggled, this, &SettingsPage::markProtectionDirty);
+    connect(m_chkDisableDDD,    &QCheckBox::toggled, this, &SettingsPage::markProtectionDirty);
+    connect(m_editExcludeUname, &QLineEdit::textEdited, this, &SettingsPage::markProtectionDirty);
+    connect(m_watchedList->model(), &QAbstractItemModel::rowsInserted,
+            this, &SettingsPage::markProtectionDirty);
+    connect(m_watchedList->model(), &QAbstractItemModel::rowsRemoved,
+            this, &SettingsPage::markProtectionDirty);
 }
 
 void SettingsPage::buildAboutTab(QWidget *tab)
@@ -403,6 +417,20 @@ void SettingsPage::buildAboutTab(QWidget *tab)
     descLabel->setAlignment(Qt::AlignCenter);
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
+
+    // Copyright / license
+    auto *copyrightLabel = new QLabel(
+        "Copyright (C) 2026 Josué Carrasco\n\n"
+        "Este programa es software libre: puedes redistribuirlo y/o modificarlo\n"
+        "bajo los términos de la GNU General Public License versión 3.\n\n"
+        "Este programa se distribuye con la esperanza de que sea útil,\n"
+        "pero SIN NINGUNA GARANTÍA. Ver la GPL para más detalles.", tab);
+    copyrightLabel->setAlignment(Qt::AlignCenter);
+    copyrightLabel->setWordWrap(true);
+    QFont cf = copyrightLabel->font();
+    cf.setPointSize(cf.pointSize() - 1);
+    copyrightLabel->setFont(cf);
+    layout->addWidget(copyrightLabel);
 
     // GitHub link
     auto *linkLabel = new QLabel(
@@ -490,6 +518,7 @@ void SettingsPage::refresh()
 
 void SettingsPage::loadProtectionSettings()
 {
+    m_protectionDirty = false;
     ClamdOnAccessConfig cfg = m_cfgMgr->readConfig();
 
     m_chkPrevention->blockSignals(true);
@@ -549,6 +578,8 @@ void SettingsPage::onPreventionToggled(bool checked)
     else
         m_lblPreventionInfo->setText(
             tr("ClamAV will detect threats but not prevent access to infected files."));
+
+    markProtectionDirty();
 }
 
 void SettingsPage::onSaveProtection()
@@ -587,8 +618,38 @@ void SettingsPage::onSaveProtection()
         cfg.excludeFilePatterns << (escaped + "$");
     }
 
+    m_protectionDirty = false;
     m_lblProtStatus->setText(tr("Saving…"));
     m_cfgMgr->saveConfig(cfg);
+}
+
+void SettingsPage::markProtectionDirty()
+{
+    m_protectionDirty = true;
+}
+
+void SettingsPage::onBackRequested()
+{
+    if (m_protectionDirty) {
+        QMessageBox dlg(this);
+        dlg.setWindowTitle(tr("Unsaved changes"));
+        dlg.setText(tr("You have unsaved changes in the Protection tab."));
+        dlg.setInformativeText(tr("Do you want to save and apply them before leaving?"));
+        dlg.setIcon(QMessageBox::Question);
+        QPushButton *btnSave    = dlg.addButton(tr("Save && Apply"), QMessageBox::AcceptRole);
+        QPushButton *btnDiscard = dlg.addButton(tr("Discard"),       QMessageBox::DestructiveRole);
+        dlg.setDefaultButton(btnSave);
+        dlg.exec();
+
+        if (dlg.clickedButton() == btnSave) {
+            onSaveProtection();
+        } else if (dlg.clickedButton() == btnDiscard) {
+            loadProtectionSettings(); // restore to saved state
+        } else {
+            return; // dialog closed — stay on the page
+        }
+    }
+    emit backRequested();
 }
 
 void SettingsPage::onCheckForUpdates()

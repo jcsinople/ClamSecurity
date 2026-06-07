@@ -46,6 +46,8 @@ private slots:
     void onSaveProtection();
     void onCheckForUpdates();
     void onPreventionToggled(bool checked);
+    void onBackRequested();
+    void markProtectionDirty();
 
 private:
     void buildGeneralTab(QWidget *tab);
@@ -98,4 +100,6 @@ private:
 
     // Back button (outside tabs)
     QPushButton *m_btnBack;
+
+    bool m_protectionDirty = false;
 };
