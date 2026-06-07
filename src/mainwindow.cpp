@@ -55,10 +55,6 @@ MainWindow::MainWindow(LanguageManager *langMgr, QWidget *parent)
     QSettings s;
     applyTheme(s.value("ui/theme", 0).toInt());
 
-    // Center on primary screen before the first show()
-    const QRect screen = QApplication::primaryScreen()->availableGeometry();
-    move(screen.center() - rect().center());
-
     m_checker->refresh();
 }
 
@@ -483,14 +479,20 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::showAndRaise()
 {
-    if (!isVisible()) {
-        // Center on the screen each time the window is shown from the tray
-        const QRect screen = QApplication::primaryScreen()->availableGeometry();
-        move(screen.center() - rect().center());
-    }
+    const bool wasHidden = !isVisible();
     show();
     raise();
     activateWindow();
+    if (wasHidden) {
+        // Defer centering until after the WM has applied window decorations,
+        // so frameGeometry() returns the real size including title bar and borders.
+        QTimer::singleShot(0, this, [this]() {
+            const QRect screen = QApplication::primaryScreen()->availableGeometry();
+            QRect fg = frameGeometry();
+            fg.moveCenter(screen.center());
+            move(fg.topLeft());
+        });
+    }
 }
 
 void MainWindow::onTrayActionScanHome()

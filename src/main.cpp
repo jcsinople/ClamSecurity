@@ -74,11 +74,11 @@ int main(int argc, char *argv[])
 
     if (parser.isSet(scanOpt)) {
         win.startScanWithPath(parser.value(scanOpt));
-        win.show();
+        win.showAndRaise();
     } else if (!parser.isSet(hiddenOpt)) {
         QSettings s;
         if (!s.value("autostart/startHidden", false).toBool())
-            win.show();
+            win.showAndRaise();
     }
 
     return app.exec();
