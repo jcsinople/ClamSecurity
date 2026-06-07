@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=ClamSecurity
+Name[es]=ClamSecurity
+GenericName=Antivirus & Firewall
+GenericName[es]=Antivirus y Firewall
+Comment=Antivirus and firewall manager powered by ClamAV and UFW
+Comment[es]=Gestión de antivirus y firewall con ClamAV y UFW
+Exec=ClamSecurity
+Icon=io.github.clamsecurity
+Terminal=false
+StartupNotify=true
+Categories=System;Security;Utility;
+Keywords=antivirus;clamav;firewall;ufw;security;virus;scan;
+Keywords[es]=antivirus;clamav;firewall;ufw;seguridad;virus;escanear;
+MimeType=

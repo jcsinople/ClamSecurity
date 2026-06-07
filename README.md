@@ -102,6 +102,11 @@ El binario quedará en `build/ClamSecurity`. Puedes ejecutarlo directamente sin 
 
 ```bash
 sudo ninja install
+
+# Registrar el .desktop y el icono en el sistema
+sudo update-desktop-database /usr/local/share/applications/
+sudo gtk-update-icon-cache -f /usr/local/share/icons/hicolor/ 2>/dev/null || true
+kbuildsycoca6   # solo en KDE — actualiza el menú de aplicaciones
 ```
 
 ### Abrir en Qt Creator

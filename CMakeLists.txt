@@ -104,3 +104,8 @@ include(GNUInstallDirs)
 install(TARGETS ClamSecurity DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES scripts/org.kde.clamsecurity.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/kio/servicemenus/)
+install(FILES scripts/io.github.clamsecurity.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications/)
+install(FILES resources/icons/clamsecurity.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps/
+    RENAME io.github.clamsecurity.svg)
