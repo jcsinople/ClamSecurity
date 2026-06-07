@@ -35,59 +35,67 @@ Interfaz gráfica nativa para Linux que integra **ClamAV** y **UFW** en una sola
 
 ---
 
-## Requisitos previos — ejecuta `setup.sh` primero
+## Instalación — ejecuta `setup.sh`
 
-Antes de compilar o ejecutar ClamSecurity por primera vez, ejecuta el script de configuración incluido. Realiza automáticamente todo lo necesario para que ClamAV funcione correctamente en tu sistema:
+Un solo comando instala las dependencias, compila la aplicación, la registra en el sistema y configura ClamAV correctamente:
 
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
+Al finalizar, ClamSecurity aparecerá en el menú de aplicaciones bajo la categoría **Sistema / Seguridad**.
+
 ### ¿Qué hace `setup.sh`?
 
 | Paso | Descripción |
 |---|---|
-| **Detección de distro** | Identifica Arch/Manjaro, Debian/Ubuntu o Fedora y usa el gestor de paquetes correcto (`pacman` / `apt` / `dnf`) |
-| **Instala dependencias** | `clamav`, `acl`, `ufw` y los paquetes auxiliares necesarios para cada distro |
-| **Comenta `Example`** | En Arch/Manjaro los archivos `clamd.conf` y `freshclam.conf` traen una directiva `Example` que impide que los servicios arranquen; el script la comenta automáticamente |
-| **Configura `clamd.conf`** | Añade una sección delimitada al final del archivo con las opciones de monitoreo en tiempo real (`OnAccessIncludePath`, `OnAccessPrevention`, exclusiones para `.cache` y `Trash`) apuntando al Home del usuario |
-| **Override de clamonacc** | Crea `/etc/systemd/system/clamav-clamonacc.service.d/override.conf` con los flags `-F` y `--log=…` para evitar que el servicio intente escribir la cuarentena en `/root/quarantine` |
-| **ACLs** | Otorga a `clamav` permiso de solo lectura sobre el Home del usuario mediante `setfacl`, sin añadirlo al grupo personal ni modificar permisos estándar. Las ACLs por defecto (`-d`) garantizan que los archivos nuevos también sean accesibles |
-| **inotify** | Escribe `/etc/sysctl.d/99-clamsecurity.conf` para aumentar `fs.inotify.max_user_watches` a 524 288. El límite por defecto (8 192) se agota en Homes con muchos archivos anidados, dejando a ClamAV sin cobertura en directorios profundos |
-| **Actualiza firmas** | Ejecuta `freshclam` para descargar la base de datos inicial de virus |
+| **Detecta la distro** | Identifica Arch/Manjaro, Debian/Ubuntu o Fedora y usa el gestor de paquetes correcto (`pacman` / `apt` / `dnf`) |
+| **Dependencias de ejecución** | Instala `clamav`, `acl`, `ufw` y paquetes auxiliares |
+| **Dependencias de compilación** | Instala Qt6, cmake, ninja y herramientas de build por distro |
+| **Compila ClamSecurity** | Ejecuta `cmake` + `ninja` desde la raíz del proyecto en modo Release |
+| **Instala en el sistema** | `sudo ninja install` + actualiza la base de datos de escritorio y el caché de iconos; en KDE ejecuta `kbuildsycoca6` para que aparezca en el menú |
+| **Comenta `Example`** | En Arch/Manjaro `clamd.conf` y `freshclam.conf` traen una directiva `Example` que impide arrancar los servicios; el script la comenta |
+| **Configura `clamd.conf`** | Añade una sección delimitada al final con `OnAccessIncludePath` apuntando a la carpeta de descargas del usuario (detectada por XDG, independiente del idioma), `OnAccessPrevention yes`, y exclusiones para archivos parcialmente descargados (`.crdownload`, `.part`) |
+| **Override de clamonacc** | Crea `/etc/systemd/system/clamav-clamonacc.service.d/override.conf` con los flags `-F` y `--log=…` para evitar que el servicio escriba cuarentena en `/root/quarantine` |
+| **ACLs** | Otorga a `clamav` permiso de solo lectura sobre el Home del usuario con `setfacl`, sin añadirlo al grupo personal ni modificar permisos POSIX. Las ACLs por defecto (`-d`) aplican a archivos y carpetas nuevos |
+| **inotify** | Escribe `/etc/sysctl.d/99-clamsecurity.conf` para aumentar `fs.inotify.max_user_watches` a 524 288 (el límite por defecto, 8 192, se agota en Homes con muchos archivos anidados) |
+| **Actualiza firmas** | Descarga la base de datos inicial de virus con `freshclam` |
 | **Habilita servicios** | Activa `clamav-daemon`, `clamav-clamonacc` (si existe) y UFW |
 
 ---
 
-## Dependencias de compilación
+## Módulos del panel principal
 
-```bash
-# Qt6 y herramientas de build
-sudo pacman -S qt6-base qt6-tools cmake ninja base-devel
+El panel principal muestra ocho tarjetas de acceso rápido organizadas en dos filas:
 
-# Iconos Breeze (recomendado en entornos no-KDE)
-sudo pacman -S breeze-icons
-
-# polkit (normalmente ya presente en KDE)
-sudo pacman -S polkit
-```
-
-En Debian/Ubuntu:
-
-```bash
-sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev
-```
-
-En Fedora:
-
-```bash
-sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel
-```
+| Módulo | Descripción |
+|---|---|
+| **Escanear** | Inicia un escaneo bajo demanda sobre el Home, una carpeta personalizada o cualquier ruta. Muestra progreso en tiempo real, estadísticas y archivos infectados. Los archivos detectados pueden enviarse directamente a cuarentena. |
+| **Base de Datos** | Muestra la versión y fecha de las firmas instaladas. Actualiza manualmente con "Actualizar Ahora" o configura actualizaciones automáticas en segundo plano (servicio `freshclam`) con frecuencia ajustable en horas. |
+| **Exclusiones** | Gestiona carpetas y extensiones que se ignorarán durante los escaneos y la protección en tiempo real. Los cambios se sincronizan automáticamente con `clamd.conf`. |
+| **Ajustes** | Tres pestañas: **General** (inicio automático, tema, idioma, control de servicios, Service Menu de Dolphin) · **Protección** (OnAccessPrevention, carpetas monitoreadas, parámetros avanzados de `clamonacc`) · **Acerca de** (versión, repositorio, verificación de actualizaciones). |
+| **Cuarentena** | Lista los archivos aislados con nombre, ruta original y fecha de detección. Permite restaurar un archivo o eliminarlo permanentemente. Los archivos en cuarentena no afectan el estado de protección del panel. |
+| **Firewall** | Controla UFW sin usar la terminal: activa o desactiva el firewall, visualiza las reglas activas, y añade o elimina reglas por protocolo y puerto. |
+| **Amenazas Activas** | Historial de archivos detectados como amenaza. Muestra ruta, fecha y estado. Permite actuar sobre cada detección: enviar a cuarentena, eliminar o marcar como revisado. |
+| **Programador** | Configura escaneos automáticos con temporizadores systemd de usuario. Define la carpeta objetivo, la frecuencia y visualiza los próximos escaneos programados. |
 
 ---
 
-## Compilación
+## Compilación manual (opcional)
+
+Si prefieres compilar sin ejecutar `setup.sh`, necesitas instalar primero las dependencias de build:
+
+```bash
+# Arch/Manjaro
+sudo pacman -S qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons
+
+# Debian/Ubuntu
+sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev
+
+# Fedora
+sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel
+```
 
 ```bash
 # Desde la raíz del proyecto
@@ -98,12 +106,12 @@ ninja
 
 El binario quedará en `build/ClamSecurity`. Puedes ejecutarlo directamente sin instalar.
 
-### Instalar en el sistema (opcional)
+### Instalar en el sistema
 
 ```bash
 sudo ninja install
 
-# Registrar el .desktop y el icono en el sistema
+# Registrar el .desktop y el icono
 sudo update-desktop-database /usr/local/share/applications/
 sudo gtk-update-icon-cache -f /usr/local/share/icons/hicolor/ 2>/dev/null || true
 kbuildsycoca6   # solo en KDE — actualiza el menú de aplicaciones
@@ -223,7 +231,7 @@ sudo sysctl --system
 
 ```
 ClamSecurity/
-├── setup.sh                            ← Configuración inicial del sistema
+├── setup.sh                            ← Instalación y configuración completa
 ├── CMakeLists.txt
 ├── src/
 │   ├── main.cpp
@@ -283,6 +291,7 @@ ClamSecurity/
 | Monitor en **ROJO** tras instalar | Ejecuta `setup.sh` o inicia los servicios: `sudo systemctl enable --now clamav-daemon` |
 | `clamonacc` no inicia | Revisa `journalctl -u clamav-clamonacc` — probablemente falta el override o las ACLs |
 | Cuarentena en `/root/quarantine` | Aplica el override de clamonacc (ver sección anterior o ejecuta `setup.sh`) |
+| No aparece en el menú de aplicaciones | Ejecuta `kbuildsycoca6` o cierra sesión y vuelve a entrar |
 | Service Menu no aparece en Dolphin | Reinstálalo desde Configuración o verifica que el binario esté en el `PATH` |
 | Firmas muy antiguas | Usa "Actualizar Ahora" en Base de Datos o ejecuta `sudo freshclam` |
 | `pkexec` no encuentra el programa | Instala con `sudo ninja install` o usa la ruta absoluta |
@@ -296,6 +305,6 @@ ClamSecurity/
 
 Copyright (C) 2026 Josué Carrasco
 
-Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la **GNU General Public License** publicada por la Free Software Foundation, ya sea la versión 3 de la Licencia, o (a tu elección) cualquier versión posterior.
+Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la **GNU General Public License versión 3** publicada por la Free Software Foundation.
 
 Este programa se distribuye con la esperanza de que sea útil, pero **SIN NINGUNA GARANTÍA**. Consulta el archivo [LICENSE](LICENSE) para más detalles.

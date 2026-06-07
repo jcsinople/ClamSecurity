@@ -35,59 +35,67 @@ Native Linux GUI that integrates **ClamAV** and **UFW** into a single applicatio
 
 ---
 
-## Prerequisites — run `setup.sh` first
+## Installation — run `setup.sh`
 
-Before building or running ClamSecurity for the first time, execute the included setup script. It automatically handles everything needed for ClamAV to work correctly on your system:
+A single command installs all dependencies, compiles the application, registers it on the system and configures ClamAV correctly:
 
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
+When finished, ClamSecurity will appear in the application menu under **System / Security**.
+
 ### What does `setup.sh` do?
 
 | Step | Description |
 |---|---|
-| **Distro detection** | Identifies Arch/Manjaro, Debian/Ubuntu or Fedora and uses the correct package manager (`pacman` / `apt` / `dnf`) |
-| **Install dependencies** | `clamav`, `acl`, `ufw` and the auxiliary packages required for each distro |
-| **Comment out `Example`** | On Arch/Manjaro, `clamd.conf` and `freshclam.conf` ship with an `Example` directive that prevents services from starting; the script comments it out automatically |
-| **Configure `clamd.conf`** | Appends a delimited section at the end of the file with real-time monitoring options (`OnAccessIncludePath`, `OnAccessPrevention`, exclusions for `.cache` and `Trash`) pointing to the user's Home |
+| **Detect distro** | Identifies Arch/Manjaro, Debian/Ubuntu or Fedora and uses the correct package manager (`pacman` / `apt` / `dnf`) |
+| **Runtime dependencies** | Installs `clamav`, `acl`, `ufw` and auxiliary packages |
+| **Build dependencies** | Installs Qt6, cmake, ninja and build tools per distro |
+| **Compile ClamSecurity** | Runs `cmake` + `ninja` from the project root in Release mode |
+| **Install system-wide** | `sudo ninja install` + updates desktop database and icon cache; on KDE runs `kbuildsycoca6` to register in the app menu |
+| **Comment out `Example`** | On Arch/Manjaro, `clamd.conf` and `freshclam.conf` ship with an `Example` directive that prevents services from starting; the script comments it out |
+| **Configure `clamd.conf`** | Appends a delimited section with `OnAccessIncludePath` pointing to the user's Downloads folder (detected via XDG, locale-aware), `OnAccessPrevention yes`, and exclusions for partially downloaded files (`.crdownload`, `.part`) |
 | **clamonacc override** | Creates `/etc/systemd/system/clamav-clamonacc.service.d/override.conf` with the `-F` and `--log=…` flags to prevent the service from writing quarantine to `/root/quarantine` |
-| **ACLs** | Grants `clamav` read-only access to the user's Home via `setfacl`, without adding it to the user's personal group or changing standard POSIX permissions. Default ACLs (`-d`) ensure new files are also accessible |
-| **inotify** | Writes `/etc/sysctl.d/99-clamsecurity.conf` to raise `fs.inotify.max_user_watches` to 524 288. The default limit (8 192) is quickly exhausted when monitoring a Home with deeply nested directories, leaving ClamAV blind to events in deep subtrees |
-| **Update signatures** | Runs `freshclam` to download the initial virus database |
+| **ACLs** | Grants `clamav` read-only access to the user's Home via `setfacl`, without adding it to the personal group or changing POSIX permissions. Default ACLs (`-d`) apply to new files and folders automatically |
+| **inotify** | Writes `/etc/sysctl.d/99-clamsecurity.conf` to raise `fs.inotify.max_user_watches` to 524 288 (the default of 8 192 is quickly exhausted in deeply nested Home directories) |
+| **Update signatures** | Downloads the initial virus database with `freshclam` |
 | **Enable services** | Activates `clamav-daemon`, `clamav-clamonacc` (if present) and UFW |
 
 ---
 
-## Build dependencies
+## Main Panel Modules
 
-```bash
-# Qt6 and build tools
-sudo pacman -S qt6-base qt6-tools cmake ninja base-devel
+The main panel shows eight quick-access cards arranged in two rows:
 
-# Breeze icons (recommended in non-KDE environments)
-sudo pacman -S breeze-icons
-
-# polkit (usually already present on KDE)
-sudo pacman -S polkit
-```
-
-On Debian/Ubuntu:
-
-```bash
-sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev
-```
-
-On Fedora:
-
-```bash
-sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel
-```
+| Module | Description |
+|---|---|
+| **Scan** | Starts an on-demand scan of the Home directory, a custom folder, or any path. Displays real-time progress, statistics and detected files. Infected files can be sent directly to quarantine. |
+| **Database** | Shows the version and date of the installed ClamAV signatures. Update manually with "Update Now" or configure background automatic updates (freshclam service) with an adjustable frequency in hours. |
+| **Exclusions** | Manages folders and extensions that will be skipped during scans and real-time protection. Changes are automatically synchronized with `clamd.conf`. |
+| **Settings** | Three tabs: **General** (autostart, theme, language, service controls, Dolphin Service Menu) · **Protection** (OnAccessPrevention, monitored folders, advanced `clamonacc` parameters) · **About** (version, repository, update check). |
+| **Quarantine** | Lists isolated files with their original name, path and detection date. Allows restoring a file to its original location or permanently deleting it. Quarantined files do not affect the protection status on the dashboard. |
+| **Firewall** | Controls UFW without the terminal: enable or disable the firewall, view active rules, and add or remove rules by protocol and port. |
+| **Active Threats** | History of files flagged as threats. Shows path, detection date and status. Allows acting on each detection: send to quarantine, delete or mark as reviewed. |
+| **Scheduler** | Configures automatic scans using systemd user timers. Define the target folder, frequency and view upcoming scheduled scans. |
 
 ---
 
-## Building
+## Manual build (optional)
+
+If you prefer to build without running `setup.sh`, first install the build dependencies:
+
+```bash
+# Arch/Manjaro
+sudo pacman -S qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons
+
+# Debian/Ubuntu
+sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev
+
+# Fedora
+sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel
+```
 
 ```bash
 # From the project root
@@ -98,7 +106,7 @@ ninja
 
 The binary will be at `build/ClamSecurity`. You can run it directly without installing.
 
-### Install system-wide (optional)
+### Install system-wide
 
 ```bash
 sudo ninja install
@@ -223,7 +231,7 @@ sudo sysctl --system
 
 ```
 ClamSecurity/
-├── setup.sh                            ← Initial system setup
+├── setup.sh                            ← Full installation and setup
 ├── CMakeLists.txt
 ├── src/
 │   ├── main.cpp
@@ -283,6 +291,7 @@ ClamSecurity/
 | Monitor shows **RED** after install | Run `setup.sh` or start services: `sudo systemctl enable --now clamav-daemon` |
 | `clamonacc` fails to start | Check `journalctl -u clamav-clamonacc` — likely missing override or ACLs |
 | Quarantine appears in `/root/quarantine` | Apply the clamonacc override (see above or run `setup.sh`) |
+| Not showing in application menu | Run `kbuildsycoca6` or log out and back in |
 | Service Menu missing in Dolphin | Reinstall from Settings or verify binary is in `PATH` |
 | Signatures out of date | Use "Update Now" on the Database page or run `sudo freshclam` |
 | `pkexec` cannot find the program | Install with `sudo ninja install` or use the absolute path |
@@ -296,6 +305,6 @@ ClamSecurity/
 
 Copyright (C) 2026 Josué Carrasco
 
-This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License version 3** published by the Free Software Foundation.
 
 This program is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**. See the [LICENSE](LICENSE) file for details.
