@@ -17,11 +17,13 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QPushButton>
+#include <QCoreApplication>
 
 // ── Schedule edit dialog ───────────────────────────────────────────────────────
 
 class ScheduleDialog : public QDialog
 {
+    Q_DECLARE_TR_FUNCTIONS(ScheduleDialog)
 public:
     explicit ScheduleDialog(QWidget *parent = nullptr)
         : QDialog(parent)

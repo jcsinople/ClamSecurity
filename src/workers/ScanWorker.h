@@ -16,7 +16,6 @@ public:
 
 public slots:
     void startScan();
-    // Safe to call from any thread — queued via signal connection
     void stopScan();
 
 signals:
@@ -34,7 +33,7 @@ private:
     QString     m_path;
     QStringList m_exclusions;
     QStringList m_extensionExclusions;
-    QProcess   *m_process    = nullptr;
+    QProcess   *m_process      = nullptr;
     int         m_filesScanned = 0;
     int         m_infected     = 0;
     std::atomic<bool> m_cancelled{false};

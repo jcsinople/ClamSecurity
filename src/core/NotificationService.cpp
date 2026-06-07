@@ -62,28 +62,44 @@ void NotificationService::onJournalOutput()
 {
     while (m_journalProcess->canReadLine()) {
         QString line = QString::fromUtf8(m_journalProcess->readLine()).trimmed();
-        if (!line.contains("FOUND") && !line.contains("Threat found"))
+        if (!line.contains("FOUND"))
             continue;
 
-        // Format: "... some: /path/to/file: ThreatName FOUND"
+        // clamd/clamonacc journal format:
+        //   "clamd[PID]: Mon DD HH:MM:SS YYYY -> /path/to/file: ThreatName FOUND"
+        // Use " -> " as anchor to extract path and threat reliably.
         QString filePath;
         QString threat;
 
-        // Try to parse "path: threat FOUND"
-        static QRegularExpression re(R"(:\s*(/[^:]+):\s+(.+)\s+FOUND)");
-        auto match = re.match(line);
-        if (match.hasMatch()) {
-            filePath = match.captured(1).trimmed();
-            threat   = match.captured(2).trimmed();
-        } else {
-            // Fallback: try last colon before FOUND
+        int arrowPos = line.lastIndexOf(" -> ");
+        if (arrowPos >= 0) {
+            QString rest = line.mid(arrowPos + 4).trimmed(); // "/path: Threat FOUND"
+            int foundPos = rest.lastIndexOf(" FOUND");
+            if (foundPos > 0) {
+                QString part   = rest.left(foundPos);         // "/path: Threat"
+                int colonPos   = part.lastIndexOf(": ");
+                if (colonPos > 0) {
+                    filePath = part.left(colonPos).trimmed();
+                    threat   = part.mid(colonPos + 2).trimmed();
+                }
+            }
+        }
+
+        // Fallback for other formats (no " -> ")
+        if (filePath.isEmpty()) {
             int foundIdx = line.lastIndexOf(" FOUND");
             if (foundIdx > 0) {
                 QString part = line.left(foundIdx).trimmed();
-                int colon = part.lastIndexOf(':');
+                int colon    = part.lastIndexOf(": ");
                 if (colon > 0) {
-                    threat   = part.mid(colon + 1).trimmed();
-                    filePath = part.left(colon).trimmed();
+                    threat            = part.mid(colon + 2).trimmed();
+                    QString pathPart  = part.left(colon).trimmed();
+                    // Extract last path-like token (starts with '/')
+                    int sp = pathPart.lastIndexOf(' ');
+                    if (sp >= 0 && sp + 1 < pathPart.size() && pathPart.at(sp + 1) == '/')
+                        filePath = pathPart.mid(sp + 1);
+                    else if (pathPart.startsWith('/'))
+                        filePath = pathPart;
                 }
             }
         }

@@ -6,6 +6,7 @@
 
 class QuarantineManager;
 class ClamAvManager;
+class ClamdConfigManager;
 
 struct ActiveThreat {
     QString id;
@@ -13,23 +14,25 @@ struct ActiveThreat {
     QString filePath;
     QString threatName;
     bool    preventionWasActive = false;
-    QString actionTaken;  // "none", "quarantined", "deleted", "excluded"
 };
 
 class ActiveThreatsPage : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ActiveThreatsPage(QuarantineManager *quar,
-                               ClamAvManager     *clam,
+    explicit ActiveThreatsPage(QuarantineManager  *quar,
+                               ClamAvManager      *clam,
+                               ClamdConfigManager *cfgMgr,
                                QWidget *parent = nullptr);
 
     void refresh();
 
-    // Called from MainWindow when a real-time threat is detected
     static void addThreat(const QString &filePath,
                           const QString &threatName,
                           bool preventionActive);
+
+    static void clearHistory();
+    static int  pendingCount();
 
 signals:
     void backRequested();
@@ -38,7 +41,6 @@ private slots:
     void onQuarantine();
     void onDeleteFile();
     void onAddExclusion();
-    void onMarkSafe();
     void onClearAll();
 
 private:
@@ -49,15 +51,15 @@ private:
     void updateActions();
     QList<int> selectedRows() const;
 
-    QuarantineManager *m_quar;
-    ClamAvManager     *m_clam;
+    QuarantineManager  *m_quar;
+    ClamAvManager      *m_clam;
+    ClamdConfigManager *m_cfgMgr;
 
     QLabel        *m_infoLabel;
     QTableWidget  *m_table;
     QPushButton   *m_btnQuarantine;
     QPushButton   *m_btnDelete;
     QPushButton   *m_btnExclude;
-    QPushButton   *m_btnMarkSafe;
     QPushButton   *m_btnClearAll;
     QPushButton   *m_btnBack;
 };

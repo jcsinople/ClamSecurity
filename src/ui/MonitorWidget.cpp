@@ -31,9 +31,9 @@ void MonitorWidget::paintEvent(QPaintEvent *)
     // Color palette
     QColor frameColor   = palette().color(QPalette::Mid);
     QColor frameDark    = frameColor.darker(140);
-    QColor screenColor  = (m_status == Status::Protected)
-                          ? QColor(0x4C, 0xAF, 0x50)   // green
-                          : QColor(0xF4, 0x43, 0x36);  // red
+    QColor screenColor  = (m_status == Status::Protected) ? QColor(0x4C, 0xAF, 0x50)  // green
+                        : (m_status == Status::Warning)  ? QColor(0xFF, 0xB3, 0x00)  // amber
+                                                         : QColor(0xF4, 0x43, 0x36); // red
     QColor screenGlow   = screenColor.lighter(160);
 
     // ---- Monitor body (outer frame) ----
@@ -72,7 +72,9 @@ void MonitorWidget::paintEvent(QPaintEvent *)
     p.drawRoundedRect(scrX, scrY, scrW, scrH, 5, 5);
 
     // Icon on screen
-    QString iconName = (m_status == Status::Protected) ? "security-high" : "security-low";
+    QString iconName = (m_status == Status::Protected) ? "security-high"
+                     : (m_status == Status::Warning)  ? "security-medium"
+                                                      : "security-low";
     QIcon icon = QIcon::fromTheme(iconName, QIcon::fromTheme("dialog-warning"));
     int iconSz = int(qMin(scrW, scrH) * 0.55);
     QRect iconRect((W - iconSz) / 2,

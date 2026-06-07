@@ -1,5 +1,7 @@
 #include "QuarantinePage.h"
 #include "QuarantineManager.h"
+#include "ClamAvManager.h"
+#include "ClamdConfigManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -10,8 +12,11 @@
 #include <QFileInfo>
 #include <QDir>
 
-QuarantinePage::QuarantinePage(QuarantineManager *quar, QWidget *parent)
-    : QWidget(parent), m_quar(quar)
+QuarantinePage::QuarantinePage(QuarantineManager  *quar,
+                                ClamAvManager      *clam,
+                                ClamdConfigManager *cfgMgr,
+                                QWidget *parent)
+    : QWidget(parent), m_quar(quar), m_clam(clam), m_cfgMgr(cfgMgr)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
@@ -94,6 +99,34 @@ void QuarantinePage::onRestore()
 {
     int row = m_table->currentRow();
     if (row < 0) return;
+
+    // Warn if real-time protection + OnAccessPrevention would block the restore
+    if (m_clam->isClamonaacRunning()) {
+        ClamdOnAccessConfig cfg = m_cfgMgr->readConfig();
+        if (cfg.preventionEnabled) {
+            // Reconstruct the original path to check if it's inside a monitored folder
+            QString origDir  = m_table->item(row, 1)->text();
+            QString origName = m_table->item(row, 0)->text();
+            QString origPath = origDir + "/" + origName;
+            bool inMonitored = false;
+            for (const QString &watched : cfg.includePaths) {
+                if (origPath.startsWith(watched)) {
+                    inMonitored = true;
+                    break;
+                }
+            }
+            if (inMonitored) {
+                QMessageBox::warning(this, tr("Cannot Restore"),
+                    tr("The original location of this file is inside a monitored folder "
+                       "and OnAccessPrevention is enabled.\n\n"
+                       "ClamAV would immediately block access to the restored file.\n\n"
+                       "To restore it, temporarily disable the real-time scanning service "
+                       "(clamav-clamonacc) from Settings → General, then try again."));
+                return;
+            }
+        }
+    }
+
     if (!m_quar->restoreFile(m_table->item(row, 0)->data(Qt::UserRole).toString()))
         QMessageBox::warning(this, tr("Error"),
             tr("Could not restore file. The original path may no longer exist."));

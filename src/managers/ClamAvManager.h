@@ -27,6 +27,8 @@ public:
 
     // ── freshclam ─────────────────────────────────────────────────────────
     bool isFreshclamRunning() const;
+    bool isFreshclamEnabled() const;   // systemctl is-enabled
+    void setFreshclamEnabled(bool enable);  // pkexec enable/disable --now
     void forceUpdate();
 
     // ── scan exclusions ───────────────────────────────────────────────────

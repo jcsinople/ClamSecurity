@@ -11,6 +11,7 @@
 #include <QMessageBox>
 #include <QFileInfo>
 #include <QTabWidget>
+#include <QRegularExpression>
 
 ExclusionsPage::ExclusionsPage(ClamAvManager     *clam,
                                ClamdConfigManager *cfgMgr,
@@ -95,7 +96,9 @@ ExclusionsPage::ExclusionsPage(ClamAvManager     *clam,
     m_btnApplyToRT->setToolTip(tr("Writes the current exclusions to /etc/clamav/clamd.conf "
                                    "and restarts real-time protection services. "
                                    "You will be prompted for your password."));
+    m_statusLabel = new QLabel(this);
     bottomRow->addWidget(m_btnBack);
+    bottomRow->addWidget(m_statusLabel);
     bottomRow->addStretch();
     bottomRow->addWidget(m_btnApplyToRT);
     layout->addLayout(bottomRow);
@@ -108,6 +111,16 @@ ExclusionsPage::ExclusionsPage(ClamAvManager     *clam,
     connect(m_btnRemoveExt,  &QPushButton::clicked, this, &ExclusionsPage::onRemoveExtension);
     connect(m_btnApplyToRT,  &QPushButton::clicked, this, &ExclusionsPage::onApplyToRT);
     connect(m_btnBack,       &QPushButton::clicked, this, &ExclusionsPage::backRequested);
+
+    connect(m_cfgMgr, &ClamdConfigManager::configSaved,
+            this, [this](bool success, const QString &msg) {
+        m_btnApplyToRT->setEnabled(true);
+        m_statusLabel->setText(msg);
+        QPalette p = m_statusLabel->palette();
+        p.setColor(QPalette::WindowText,
+                   success ? QColor(0x2E, 0x7D, 0x32) : QColor(0xC6, 0x28, 0x28));
+        m_statusLabel->setPalette(p);
+    });
 
     connect(m_list, &QListWidget::itemSelectionChanged, this, [this]() {
         m_btnRemove->setEnabled(!m_list->selectedItems().isEmpty());
@@ -182,10 +195,8 @@ void ExclusionsPage::onRemoveExtension()
 
 void ExclusionsPage::onApplyToRT()
 {
-    QMessageBox::information(this, tr("Apply to Real-Time Protection"),
-        tr("You will be prompted for your administrator password.\n\n"
-           "The exclusions will be written to /etc/clamav/clamd.conf "
-           "and real-time protection services will be restarted."));
+    m_btnApplyToRT->setEnabled(false);
+    m_statusLabel->setText(tr("Saving…"));
     buildClamdConfig();
 }
 
@@ -193,23 +204,25 @@ void ExclusionsPage::buildClamdConfig()
 {
     ClamdOnAccessConfig cfg = m_cfgMgr->readConfig();
 
-    // Separate directories from files for on-access exclude paths
+    // Directories → OnAccessExcludePath, files → ExcludePath (PCRE)
     QStringList excludeDirs;
+    QStringList filePatterns;
     for (const QString &path : m_clam->exclusions()) {
-        if (QFileInfo(path).isDir())
+        if (QFileInfo(path).isDir()) {
             excludeDirs << path;
+        } else {
+            filePatterns << ("^" + QRegularExpression::escape(path) + "$");
+        }
     }
     cfg.onAccessExcludePaths = excludeDirs;
 
-    // Convert extensions to PCRE patterns for clamd.conf ExcludePath
-    QStringList patterns;
+    // Extension patterns + individual file patterns
     for (const QString &ext : m_clam->excludedExtensions()) {
-        // e.g. ".crdownload" → "\\.crdownload$"
         QString escaped = ext;
         escaped.replace('.', "\\.");
-        patterns << (escaped + "$");
+        filePatterns << (escaped + "$");
     }
-    cfg.excludeFilePatterns = patterns;
+    cfg.excludeFilePatterns = filePatterns;
 
     m_cfgMgr->saveConfig(cfg);
 }

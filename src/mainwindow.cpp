@@ -36,14 +36,15 @@
 #include <QMessageBox>
 #include <QFileInfo>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
+MainWindow::MainWindow(LanguageManager *langMgr, QWidget *parent)
+    : QMainWindow(parent), m_langMgr(langMgr)
 {
     setWindowTitle("ClamSecurity");
     setWindowIcon(QIcon::fromTheme("security-high",
                                    QIcon(":/icons/clamsecurity.svg")));
-    resize(800, 640);
-    setFixedSize(800, 640);
+    setFixedSize(800, 530);
+
+    ActiveThreatsPage::clearHistory();   // start each session with a clean slate
 
     setupManagers();
     setupUI();
@@ -70,8 +71,8 @@ void MainWindow::setupManagers()
     m_notif     = new NotificationService(this);
     m_cfgMgr    = new ClamdConfigManager(this);
     m_schedMgr  = new SchedulerManager(this);
-    m_checker   = new SystemChecker(m_clam, m_ufw, m_quar, this);
-    m_langMgr   = new LanguageManager(qApp, this);
+    m_checker   = new SystemChecker(m_clam, m_ufw, m_quar, m_cfgMgr, this);
+    // m_langMgr received from main() — single instance that owns the installed translators
 }
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
@@ -81,13 +82,13 @@ void MainWindow::setupUI()
     m_stack = new QStackedWidget(this);
 
     // Build pages
-    m_scanPage          = new ScanPage(m_clam, m_quar);
+    m_scanPage          = new ScanPage(m_clam, m_quar, m_cfgMgr);
     m_dbPage            = new DatabasePage(m_clam);
     m_exclusionsPage    = new ExclusionsPage(m_clam, m_cfgMgr);
-    m_quarantinePage    = new QuarantinePage(m_quar);
+    m_quarantinePage    = new QuarantinePage(m_quar, m_clam, m_cfgMgr);
     m_firewallPage      = new FirewallPage(m_ufw);
     m_settingsPage      = new SettingsPage(m_autostart, m_clam, m_langMgr, m_cfgMgr);
-    m_activeThreatsPage  = new ActiveThreatsPage(m_quar, m_clam);
+    m_activeThreatsPage  = new ActiveThreatsPage(m_quar, m_clam, m_cfgMgr);
     m_scheduledScansPage = new ScheduledScansPage(m_schedMgr);
 
     m_stack->addWidget(buildOverviewPage());     // index 0
@@ -102,13 +103,6 @@ void MainWindow::setupUI()
 
     setCentralWidget(m_stack);
 
-    // Toolbar with back button
-    m_toolbar = addToolBar(tr("Navigation"));
-    m_toolbar->setMovable(false);
-    m_toolbar->setVisible(false);
-    m_actBack = m_toolbar->addAction(
-        QIcon::fromTheme("go-previous"), tr("Back to overview"));
-    connect(m_actBack, &QAction::triggered, this, &MainWindow::navigateBack);
 }
 
 QWidget *MainWindow::buildOverviewPage()
@@ -197,16 +191,16 @@ QWidget *MainWindow::buildOverviewPage()
     m_cardScheduler     = makeCard("appointment-new",   tr("Scheduler"),
                             tr("Automatic scans"),      Page::ScheduledScans);
 
-    // Row 0: Scan, Database, Exclusions, Quarantine
+    // Row 0: Scan, Database, Exclusions, Settings
     grid->addWidget(m_cardScan,  0, 0);
     grid->addWidget(m_cardDB,    0, 1);
     grid->addWidget(m_cardExcl,  0, 2);
-    grid->addWidget(m_cardQuar,  0, 3);
-    // Row 1: Firewall, Settings, ActiveThreats, Scheduler
-    grid->addWidget(m_cardFW,           1, 0);
-    grid->addWidget(m_cardConf,         1, 1);
+    grid->addWidget(m_cardConf,  0, 3);
+    // Row 1: Quarantine, Firewall, ActiveThreats, Scheduler
+    grid->addWidget(m_cardQuar,          1, 0);
+    grid->addWidget(m_cardFW,            1, 1);
     grid->addWidget(m_cardActiveThreats, 1, 2);
-    grid->addWidget(m_cardScheduler,    1, 3);
+    grid->addWidget(m_cardScheduler,     1, 3);
 
     layout->addLayout(grid);
     layout->addStretch();
@@ -279,7 +273,7 @@ void MainWindow::connectSignals()
     // Real-time threat detection: add to active threats + single notification
     connect(m_notif, &NotificationService::threatDetectedInLog,
             this, [this](const QString &filePath, const QString &threat) {
-        // Add to persistent threat log
+        // Add to persistent threat log (addThreat deduplicates internally)
         ActiveThreatsPage::addThreat(filePath, threat,
                                      m_clam->isClamonaacRunning());
         // Send one notification (deduplication is already done in NotificationService)
@@ -288,11 +282,13 @@ void MainWindow::connectSignals()
                           QFileInfo(filePath).fileName().isEmpty()
                               ? filePath : QFileInfo(filePath).fileName()),
                       "security-low", 2);
+        // Auto-refresh the page if it's currently open
+        if (m_stack->currentWidget() == m_activeThreatsPage)
+            m_activeThreatsPage->refresh();
         // Update status
         m_checker->refresh();
         // Update active threats card subtitle
         if (m_cardActiveThreats) {
-            // We don't have a live count easily without reading JSON, just mark it
             m_cardActiveThreats->setSubtitle(tr("New threat!"));
             m_cardActiveThreats->setStatusColor(QColor(0xC6, 0x28, 0x28));
         }
@@ -328,6 +324,8 @@ void MainWindow::connectSignals()
 
     connect(m_settingsPage, &SettingsPage::themeChangeRequested,
             this, &MainWindow::applyTheme);
+    connect(m_settingsPage, &SettingsPage::serviceStateChanged,
+            m_checker, &SystemChecker::refresh);
 
     m_notif->startLogWatcher();
 }
@@ -342,16 +340,38 @@ void MainWindow::onStatusChanged(const SystemStatus &status)
 
 void MainWindow::updateStatusDisplay(const SystemStatus &status)
 {
-    bool ok = status.overallProtected;
-    m_monitor->setStatus(ok ? MonitorWidget::Status::Protected
-                            : MonitorWidget::Status::Alert);
+    MonitorWidget::Status monState;
+    QString labelText;
+    QColor  labelColor;
+    QString trayIcon;
 
-    m_statusLabel->setText(ok ? tr("Your computer is protected")
-                              : tr("Attention: Action required"));
+    switch (status.level) {
+    case ProtectionLevel::Protected:
+        monState   = MonitorWidget::Status::Protected;
+        labelText  = tr("Your computer is protected");
+        labelColor = QColor(0x1B, 0x5E, 0x20);
+        trayIcon   = "security-high";
+        break;
+    case ProtectionLevel::Warning:
+        monState   = MonitorWidget::Status::Warning;
+        labelText  = tr("Warning: Review recommended");
+        labelColor = QColor(0xE6, 0x5C, 0x00);
+        trayIcon   = "security-medium";
+        break;
+    case ProtectionLevel::Alert:
+    default:
+        monState   = MonitorWidget::Status::Alert;
+        labelText  = tr("Attention: Action required");
+        labelColor = QColor(0xB7, 0x1C, 0x1C);
+        trayIcon   = "security-low";
+        break;
+    }
+
+    m_monitor->setStatus(monState);
+    m_statusLabel->setText(labelText);
 
     QPalette p = m_statusLabel->palette();
-    p.setColor(QPalette::WindowText,
-               ok ? QColor(0x1B, 0x5E, 0x20) : QColor(0xB7, 0x1C, 0x1C));
+    p.setColor(QPalette::WindowText, labelColor);
     m_statusLabel->setPalette(p);
 
     if (status.issues.isEmpty())
@@ -360,9 +380,7 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
         m_statusSub->setText(status.issues.join("\n"));
 
     // Tray icon
-    m_tray->setIcon(QIcon::fromTheme(
-        ok ? "security-high" : "security-low",
-        QIcon(":/icons/clamsecurity.svg")));
+    m_tray->setIcon(QIcon::fromTheme(trayIcon, QIcon(":/icons/clamsecurity.svg")));
 
     bool rtActive = status.realtimeAvailable ? status.realtimeRunning
                                              : status.daemonRunning;
@@ -370,7 +388,9 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     m_realtimeToggle->setChecked(rtActive);
     m_realtimeToggle->setEnabled(status.realtimeAvailable || status.clamavInstalled);
     m_realtimeToggle->blockSignals(false);
+    m_trayActRealtime->blockSignals(true);
     m_trayActRealtime->setChecked(rtActive);
+    m_trayActRealtime->blockSignals(false);
 }
 
 void MainWindow::updateCardSubtitles(const SystemStatus &status)
@@ -413,7 +433,7 @@ void MainWindow::navigateTo(Page page)
 {
     int idx = static_cast<int>(page);
     m_stack->setCurrentIndex(idx);
-    m_toolbar->setVisible(idx != 0);
+
 
     // Refresh data when entering a page
     switch (page) {
@@ -437,7 +457,6 @@ void MainWindow::navigateTo(Page page)
 void MainWindow::navigateBack()
 {
     m_stack->setCurrentIndex(0);
-    m_toolbar->setVisible(false);
     m_checker->refresh();
 }
 
@@ -482,11 +501,15 @@ void MainWindow::onTrayActionUpdateDB()
 void MainWindow::onTrayActionToggleRealtime()
 {
     bool enable = m_trayActRealtime->isChecked();
+    m_trayActRealtime->setEnabled(false);
     if (m_clam->isClamonaacAvailable())
         m_clam->setClamonaacEnabled(enable);
     else
         m_clam->setDaemonEnabled(enable);
-    QTimer::singleShot(3000, m_checker, &SystemChecker::refresh);
+    QTimer::singleShot(5000, this, [this]() {
+        m_trayActRealtime->setEnabled(true);
+        m_checker->refresh();
+    });
 }
 
 void MainWindow::onTrayActionQuit()

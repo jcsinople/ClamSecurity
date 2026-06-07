@@ -15,10 +15,9 @@ int main(int argc, char *argv[])
     app.setQuitOnLastWindowClosed(false);
 
     // ── Language: apply before any UI is created ──────────────────────────
-    // LanguageManager is destroyed with app, MainWindow gets its own instance.
-    // We use a temporary one here just for startup translation setup.
-    LanguageManager startupLang(&app);
-    startupLang.applyStartup();
+    // Single instance shared with MainWindow so apply() removes the right translators.
+    auto *langMgr = new LanguageManager(&app, &app);
+    langMgr->applyStartup();
 
     // ── Command-line arguments ─────────────────────────────────────────────
     QCommandLineParser parser;
@@ -38,7 +37,7 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     // ── Main window ────────────────────────────────────────────────────────
-    MainWindow win;
+    MainWindow win(langMgr);
 
     if (parser.isSet(scanOpt)) {
         win.startScanWithPath(parser.value(scanOpt));

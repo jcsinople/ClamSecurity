@@ -19,6 +19,8 @@
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QScrollArea>
+#include <QRegularExpression>
+#include <QFrame>
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -81,27 +83,32 @@ SettingsPage::SettingsPage(AutostartManager   *autostart,
 
 void SettingsPage::buildGeneralTab(QWidget *tab)
 {
-    auto *layout = new QVBoxLayout(tab);
+    auto *scroll = new QScrollArea(tab);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+
+    auto *w      = new QWidget(scroll);
+    auto *layout = new QVBoxLayout(w);
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(12);
 
     // --- Autostart ---
-    auto *startGroup = new QGroupBox(tr("System Startup"), tab);
+    auto *startGroup = new QGroupBox(tr("System Startup"), w);
     auto *startLay   = new QVBoxLayout(startGroup);
-    m_chkAutostart   = new QCheckBox(tr("Start ClamSecurity with the system"), tab);
-    m_chkStartHidden = new QCheckBox(tr("Start hidden in System Tray"), tab);
+    m_chkAutostart   = new QCheckBox(tr("Start ClamSecurity with the system"), w);
+    m_chkStartHidden = new QCheckBox(tr("Start hidden in System Tray"), w);
     m_chkStartHidden->setEnabled(false);
     startLay->addWidget(m_chkAutostart);
     startLay->addWidget(m_chkStartHidden);
     layout->addWidget(startGroup);
 
     // --- Theme ---
-    auto *themeGroup = new QGroupBox(tr("Visual Theme"), tab);
+    auto *themeGroup = new QGroupBox(tr("Visual Theme"), w);
     auto *themeLay   = new QHBoxLayout(themeGroup);
     m_themeGroup  = new QButtonGroup(this);
-    m_radioSystem = new QRadioButton(tr("System"), tab);
-    m_radioLight  = new QRadioButton(tr("Light"),  tab);
-    m_radioDark   = new QRadioButton(tr("Dark"),   tab);
+    m_radioSystem = new QRadioButton(tr("System"), w);
+    m_radioLight  = new QRadioButton(tr("Light"),  w);
+    m_radioDark   = new QRadioButton(tr("Dark"),   w);
     m_themeGroup->addButton(m_radioSystem, 0);
     m_themeGroup->addButton(m_radioLight,  1);
     m_themeGroup->addButton(m_radioDark,   2);
@@ -111,10 +118,10 @@ void SettingsPage::buildGeneralTab(QWidget *tab)
     layout->addWidget(themeGroup);
 
     // --- Language ---
-    auto *langGroup = new QGroupBox(tr("Language"), tab);
+    auto *langGroup = new QGroupBox(tr("Language"), w);
     auto *langLay   = new QHBoxLayout(langGroup);
-    langLay->addWidget(new QLabel(tr("Interface language:"), tab));
-    m_langCombo = new QComboBox(tab);
+    langLay->addWidget(new QLabel(tr("Interface language:"), w));
+    m_langCombo = new QComboBox(w);
     for (const auto &lang : LanguageManager::available())
         m_langCombo->addItem(lang.name, lang.code);
     langLay->addWidget(m_langCombo);
@@ -122,29 +129,34 @@ void SettingsPage::buildGeneralTab(QWidget *tab)
     layout->addWidget(langGroup);
 
     // --- ClamAV service ---
-    auto *clamGroup = new QGroupBox(tr("ClamAV Service"), tab);
+    auto *clamGroup = new QGroupBox(tr("ClamAV Service"), w);
     auto *clamLay   = new QVBoxLayout(clamGroup);
-    m_chkDaemon = new QCheckBox(tr("ClamAV Daemon (clamav-daemon)"), tab);
+    m_chkDaemon = new QCheckBox(tr("ClamAV Daemon (clamav-daemon)"), w);
     m_chkDaemon->setToolTip(tr("Scanning backend — required for on-demand scans "
                                "and real-time protection."));
     clamLay->addWidget(m_chkDaemon);
 
-    m_chkRealtime = new QCheckBox(tr("Real-Time Protection (clamav-clamonacc)"), tab);
+    m_chkRealtime = new QCheckBox(tr("Real-Time Protection (clamav-clamonacc)"), w);
     m_chkRealtime->setToolTip(tr("On-access scanning via ClamOnAcc. "
                                  "Requires clamav-daemon to be running."));
     clamLay->addWidget(m_chkRealtime);
 
     m_btnRestartDaemon = new QPushButton(
         QIcon::fromTheme("system-restart"),
-        tr("Restart clamav-daemon (requires password)"), tab);
+        tr("Restart clamav-daemon (requires password)"), w);
     m_btnInstallMenu = new QPushButton(
         QIcon::fromTheme("document-save"),
-        tr("Install Dolphin Service Menu"), tab);
+        tr("Install Dolphin Service Menu"), w);
     clamLay->addWidget(m_btnRestartDaemon);
     clamLay->addWidget(m_btnInstallMenu);
     layout->addWidget(clamGroup);
 
     layout->addStretch();
+    scroll->setWidget(w);
+
+    auto *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setContentsMargins(0, 0, 0, 0);
+    tabLayout->addWidget(scroll);
 
     // Connections
     connect(m_chkAutostart,   &QCheckBox::toggled,
@@ -164,6 +176,7 @@ void SettingsPage::buildGeneralTab(QWidget *tab)
             m_chkDaemon->blockSignals(true);
             m_chkDaemon->setChecked(m_clam->isDaemonRunning());
             m_chkDaemon->blockSignals(false);
+            emit serviceStateChanged();
         });
     });
     connect(m_chkRealtime, &QCheckBox::toggled, this, [this](bool checked) {
@@ -174,6 +187,7 @@ void SettingsPage::buildGeneralTab(QWidget *tab)
             m_chkRealtime->blockSignals(true);
             m_chkRealtime->setChecked(m_clam->isClamonaacRunning());
             m_chkRealtime->blockSignals(false);
+            emit serviceStateChanged();
         });
     });
     connect(m_btnRestartDaemon, &QPushButton::clicked,
@@ -190,10 +204,13 @@ void SettingsPage::buildProtectionTab(QWidget *tab)
 
     m_protStack = new QStackedWidget(tab);
 
-    // ── Basic view (index 0) ──────────────────────────────────────────────
-    auto *basicWidget = new QWidget(m_protStack);
+    // ── Basic view (index 0) — wrapped in scroll area ─────────────────────
+    auto *basicScroll = new QScrollArea(m_protStack);
+    basicScroll->setWidgetResizable(true);
+    basicScroll->setFrameShape(QFrame::NoFrame);
+    auto *basicWidget = new QWidget(basicScroll);
     auto *basicLay    = new QVBoxLayout(basicWidget);
-    basicLay->setContentsMargins(0, 0, 0, 0);
+    basicLay->setContentsMargins(4, 4, 4, 4);
     basicLay->setSpacing(10);
 
     // OnAccessPrevention group
@@ -235,8 +252,8 @@ void SettingsPage::buildProtectionTab(QWidget *tab)
     m_btnViewAdvanced = new QPushButton(tr("Show Advanced Settings"), basicWidget);
     basicLay->addWidget(m_btnViewAdvanced);
     basicLay->addStretch();
-
-    m_protStack->addWidget(basicWidget);
+    basicScroll->setWidget(basicWidget);
+    m_protStack->addWidget(basicScroll);
 
     // ── Advanced view (index 1) ───────────────────────────────────────────
     auto *advScroll = new QScrollArea(m_protStack);
@@ -444,7 +461,7 @@ void SettingsPage::refresh()
     else if (theme == 2) m_radioDark->setChecked(true);
     else                 m_radioSystem->setChecked(true);
 
-    QString cur = m_langMgr->current();
+    QString cur = s.value("ui/language", "en").toString();
     for (int i = 0; i < m_langCombo->count(); ++i) {
         if (m_langCombo->itemData(i).toString() == cur) {
             m_langCombo->setCurrentIndex(i);
@@ -556,10 +573,12 @@ void SettingsPage::onSaveProtection()
     cfg.extraScanning  = m_chkExtraScanning->isChecked();
     cfg.disableDDD     = m_chkDisableDDD->isChecked();
 
-    // Sync exclusions from ClamAvManager
+    // Directories → OnAccessExcludePath, files → ExcludePath (PCRE)
     for (const QString &path : m_clam->exclusions()) {
         if (QFileInfo(path).isDir())
             cfg.onAccessExcludePaths << path;
+        else
+            cfg.excludeFilePatterns << ("^" + QRegularExpression::escape(path) + "$");
     }
     for (const QString &ext : m_clam->excludedExtensions()) {
         QString escaped = ext;
@@ -638,8 +657,8 @@ void SettingsPage::onLanguageChanged(int index)
         QMessageBox::information(this, tr("Language changed"),
             tr("The language will be applied after restarting ClamSecurity.\n\n"
                "Restart now?"));
-        QProcess::startDetached(QApplication::applicationFilePath(),
-                                QApplication::arguments());
+        QStringList args = QApplication::arguments().mid(1);
+        QProcess::startDetached(QApplication::applicationFilePath(), args);
         QApplication::quit();
     }
 }

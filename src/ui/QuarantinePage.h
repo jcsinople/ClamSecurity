@@ -5,12 +5,17 @@
 #include <QLabel>
 
 class QuarantineManager;
+class ClamAvManager;
+class ClamdConfigManager;
 
 class QuarantinePage : public QWidget
 {
     Q_OBJECT
 public:
-    explicit QuarantinePage(QuarantineManager *quar, QWidget *parent = nullptr);
+    explicit QuarantinePage(QuarantineManager  *quar,
+                            ClamAvManager      *clam,
+                            ClamdConfigManager *cfgMgr,
+                            QWidget *parent = nullptr);
 
     void refresh();
 
@@ -24,7 +29,9 @@ private slots:
     void onSelectionChanged();
 
 private:
-    QuarantineManager *m_quar;
+    QuarantineManager  *m_quar;
+    ClamAvManager      *m_clam;
+    ClamdConfigManager *m_cfgMgr;
     QTableWidget      *m_table;
     QLabel            *m_countLabel;
     QPushButton       *m_btnRestore;

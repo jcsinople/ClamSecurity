@@ -22,7 +22,9 @@ QList<LanguageManager::Language> LanguageManager::available()
 
 bool LanguageManager::apply(const QString &langCode)
 {
-    if (langCode == m_current) return false;
+    // Only skip if this instance has already applied a language AND it's the same one.
+    // An empty m_current means this instance never applied anything yet.
+    if (!m_current.isEmpty() && langCode == m_current) return false;
 
     // Remove old translators
     m_app->removeTranslator(m_appTranslator);

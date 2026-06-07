@@ -6,7 +6,6 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QCheckBox>
-#include <QToolBar>
 #include <QAction>
 #include "SystemChecker.h"
 #include "LanguageManager.h"
@@ -45,7 +44,7 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(LanguageManager *langMgr, QWidget *parent = nullptr);
     ~MainWindow();
 
     void startScanWithPath(const QString &path);
@@ -91,8 +90,6 @@ private:
 
     // UI
     QStackedWidget *m_stack;
-    QToolBar       *m_toolbar;
-    QAction        *m_actBack;
 
     // Overview widgets
     MonitorWidget *m_monitor;

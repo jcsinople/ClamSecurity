@@ -1,6 +1,7 @@
 #include "ScanPage.h"
 #include "ClamAvManager.h"
 #include "QuarantineManager.h"
+#include "ClamdConfigManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -11,10 +12,11 @@
 #include <QProcess>
 #include <QLocale>
 
-ScanPage::ScanPage(ClamAvManager *clam,
-                   QuarantineManager *quar,
+ScanPage::ScanPage(ClamAvManager      *clam,
+                   QuarantineManager  *quar,
+                   ClamdConfigManager *cfgMgr,
                    QWidget *parent)
-    : QWidget(parent), m_clam(clam), m_quar(quar)
+    : QWidget(parent), m_clam(clam), m_quar(quar), m_cfgMgr(cfgMgr)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setSpacing(10);
@@ -183,14 +185,50 @@ void ScanPage::onTotalCountReady()
     m_thread->start();
 }
 
-void ScanPage::onScanHome()   { startScan(QDir::homePath()); }
+bool ScanPage::checkRealtimeConflict(const QString &scanPath)
+{
+    if (!m_clam->isClamonaacRunning()) return false;
+
+    ClamdOnAccessConfig cfg = m_cfgMgr->readConfig();
+    bool overlap = false;
+    for (const QString &watched : cfg.includePaths) {
+        if (scanPath.startsWith(watched) || watched.startsWith(scanPath)) {
+            overlap = true;
+            break;
+        }
+    }
+    if (!overlap) return false;
+
+    QMessageBox dlg(this);
+    dlg.setWindowTitle(tr("Real-Time Protection Active"));
+    dlg.setIcon(QMessageBox::Warning);
+    dlg.setText(
+        tr("The folder you are about to scan is monitored by real-time protection.\n\n"
+           "Scanning while real-time protection is active may cause conflicts "
+           "or slow down the scan significantly.\n\n"
+           "It is recommended to temporarily disable the real-time scanning service "
+           "(clamav-clamonacc) from Settings \342\206\222 General before scanning, "
+           "and re-enable it manually afterwards."));
+    dlg.addButton(tr("Scan Anyway"), QMessageBox::AcceptRole);
+    QPushButton *cancelBtn = dlg.addButton(tr("Cancel"), QMessageBox::RejectRole);
+    dlg.exec();
+    return dlg.clickedButton() == cancelBtn;
+}
+
+void ScanPage::onScanHome()
+{
+    if (checkRealtimeConflict(QDir::homePath())) return;
+    startScan(QDir::homePath());
+}
 
 void ScanPage::onScanCustom()
 {
     QString path = QFileDialog::getExistingDirectory(
         this, tr("Select directory to scan"), QDir::homePath(),
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-    if (!path.isEmpty()) startScan(path);
+    if (path.isEmpty()) return;
+    if (checkRealtimeConflict(path)) return;
+    startScan(path);
 }
 
 void ScanPage::onStopScan()
@@ -296,6 +334,7 @@ void ScanPage::onItemChanged(QListWidgetItem *)
 
 void ScanPage::onQuarantineChecked()
 {
+    bool any = false;
     for (QListWidgetItem *item : checkedItems()) {
         ThreatItem data = item->data(Qt::UserRole).value<ThreatItem>();
         if (m_quar->quarantineFile(data.filePath, data.threatName)) {
@@ -304,9 +343,16 @@ void ScanPage::onQuarantineChecked()
             item->setIcon(QIcon::fromTheme("edit-delete"));
             item->setText(item->text() + tr("  [QUARANTINED]"));
             item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
+            any = true;
         }
     }
     onItemChanged(nullptr);
+    if (any) {
+        QMessageBox::information(this, tr("Quarantine"),
+            tr("File quarantined successfully.\n\n"
+               "To also exclude it from real-time protection, go to Exclusions "
+               "and click \"Apply to Real-Time Protection\"."));
+    }
 }
 
 void ScanPage::onIgnoreChecked()
@@ -324,16 +370,14 @@ void ScanPage::onIgnoreChecked()
 
 void ScanPage::onAddExclusionChecked()
 {
-    QSet<QString> dirs;
     for (QListWidgetItem *item : checkedItems()) {
         ThreatItem data = item->data(Qt::UserRole).value<ThreatItem>();
-        dirs.insert(QFileInfo(data.filePath).dir().path());
+        m_clam->addExclusion(data.filePath);   // add the file itself, not the folder
         data.actionTaken = true;
         item->setData(Qt::UserRole, QVariant::fromValue(data));
         item->setText(item->text() + tr("  [EXCLUDED]"));
         item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
     }
-    for (const QString &dir : dirs) m_clam->addExclusion(dir);
     onItemChanged(nullptr);
 }
 

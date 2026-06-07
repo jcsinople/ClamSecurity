@@ -9,6 +9,7 @@
 
 class ClamAvManager;
 class QuarantineManager;
+class ClamdConfigManager;
 
 // Per-threat data stored in each list item
 struct ThreatItem {
@@ -22,8 +23,9 @@ class ScanPage : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ScanPage(ClamAvManager     *clam,
-                      QuarantineManager *quar,
+    explicit ScanPage(ClamAvManager      *clam,
+                      QuarantineManager  *quar,
+                      ClamdConfigManager *cfgMgr,
                       QWidget *parent = nullptr);
 
     void startScan(const QString &path);
@@ -55,9 +57,12 @@ private:
     bool hasUnhandledThreats() const;
     QList<QListWidgetItem*> checkedItems() const;
     void formatStats(int files, int threats, qint64 elapsedMs);
+    // Returns true if the user cancelled due to real-time conflict
+    bool checkRealtimeConflict(const QString &scanPath);
 
-    ClamAvManager     *m_clam;
-    QuarantineManager *m_quar;
+    ClamAvManager      *m_clam;
+    QuarantineManager  *m_quar;
+    ClamdConfigManager *m_cfgMgr;
     QThread     *m_thread       = nullptr;
     ScanWorker  *m_worker       = nullptr;
     QProcess    *m_countProcess = nullptr;

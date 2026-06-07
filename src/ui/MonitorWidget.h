@@ -5,7 +5,7 @@ class MonitorWidget : public QWidget
 {
     Q_OBJECT
 public:
-    enum class Status { Protected, Alert };
+    enum class Status { Protected, Warning, Alert };
 
     explicit MonitorWidget(QWidget *parent = nullptr);
     void setStatus(Status s);

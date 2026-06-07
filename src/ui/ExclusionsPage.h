@@ -3,6 +3,7 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QTabWidget>
+#include <QLabel>
 
 class ClamAvManager;
 class ClamdConfigManager;
@@ -48,4 +49,5 @@ private:
     // Bottom
     QPushButton *m_btnApplyToRT;
     QPushButton *m_btnBack;
+    QLabel      *m_statusLabel;
 };

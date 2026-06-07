@@ -25,23 +25,19 @@ void ScanWorker::startScan()
     QStringList args;
     args << "--recursive"
          << "--no-summary"
-         << "--stdout"          // merged output to stdout
+         << "--stdout"
          << "--exclude-dir=^/proc"
          << "--exclude-dir=^/sys"
          << "--exclude-dir=^/dev"
          << "--exclude-dir=^/run";
 
-    // Do NOT use --infected: we need every line to count scanned files
-    // Threats show as "path: ThreatName FOUND", clean as "path: OK"
-
     for (const QString &excl : m_exclusions) {
         if (QFileInfo(excl).isDir())
             args << ("--exclude-dir=" + excl);
         else
-            args << ("--exclude=" + QFileInfo(excl).fileName());
+            args << ("--exclude=^" + QRegularExpression::escape(excl) + "$");
     }
 
-    // Extension exclusions (e.g. ".crdownload" → "--exclude=*.crdownload")
     for (const QString &ext : m_extensionExclusions) {
         QString pattern = ext.startsWith('.') ? "*" + ext : "*." + ext;
         args << ("--exclude=" + pattern);
@@ -58,13 +54,11 @@ void ScanWorker::startScan()
     }
 }
 
-// Called via Qt::QueuedConnection → runs in worker thread's event loop
 void ScanWorker::stopScan()
 {
     m_cancelled = true;
     if (m_process && m_process->state() != QProcess::NotRunning) {
         m_process->terminate();
-        // onProcessFinished will handle the rest
     }
 }
 
@@ -72,10 +66,20 @@ void ScanWorker::onReadyRead()
 {
     while (m_process && m_process->canReadLine()) {
         QString line = QString::fromUtf8(m_process->readLine()).trimmed();
-        if (line.isEmpty() || line.startsWith("LibClamAV")) continue;
+        if (line.isEmpty() || line.startsWith("LibClamAV") ||
+            line.startsWith("Scanning "))
+            continue;
+
+        // Filter access-denied errors produced when OnAccessPrevention is active.
+        // These are not real scan errors — clamd temporarily blocks the file open
+        // and then permits it, but clamscan sometimes logs the transient denial.
+        if (line.contains("Permission denied") ||
+            line.contains("Can't open file") ||
+            line.contains("Access denied") ||
+            line.contains("Operation not permitted"))
+            continue;
 
         if (line.endsWith(" FOUND")) {
-            // Format: "/path/to/file: ThreatName FOUND"
             static QRegularExpression re(R"(^(.+): (.+) FOUND$)");
             auto m = re.match(line);
             if (m.hasMatch()) {
@@ -86,7 +90,6 @@ void ScanWorker::onReadyRead()
         } else if (line.endsWith(": OK")) {
             m_filesScanned++;
         } else if (line.contains(": ") && !line.startsWith("---")) {
-            // Catch other non-OK, non-FOUND lines (errors on specific files)
             m_filesScanned++;
         } else {
             continue;
@@ -100,11 +103,9 @@ void ScanWorker::onReadyRead()
 
 void ScanWorker::onProcessFinished(int exitCode, QProcess::ExitStatus)
 {
-    // exitCode 0 = clean, 1 = virus found, 2 = error
     if (exitCode == 2 && !m_cancelled)
-        emit scanError(
-            tr("clamscan finished with errors. "
-               "Check that the path is accessible."));
+        emit scanError(tr("clamscan finished with errors. "
+                          "Check that the path is accessible."));
 
     emit scanFinished(m_filesScanned, m_infected, m_cancelled.load());
     m_process->deleteLater();

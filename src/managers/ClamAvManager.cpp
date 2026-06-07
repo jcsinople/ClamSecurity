@@ -122,6 +122,20 @@ bool ClamAvManager::isFreshclamRunning() const
     return serviceIsActive("clamav-freshclam");
 }
 
+bool ClamAvManager::isFreshclamEnabled() const
+{
+    QProcess p;
+    p.start("systemctl", {"is-enabled", "--quiet", "clamav-freshclam"});
+    p.waitForFinished(3000);
+    return p.exitCode() == 0;
+}
+
+void ClamAvManager::setFreshclamEnabled(bool enable)
+{
+    QStringList args = {"systemctl", enable ? "enable" : "disable", "--now", "clamav-freshclam"};
+    QProcess::startDetached("pkexec", args);
+}
+
 // ── signature update ──────────────────────────────────────────────────────────
 
 void ClamAvManager::forceUpdate()

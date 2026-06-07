@@ -24,6 +24,8 @@ set(PROJECT_SOURCES
     src/managers/AutostartManager.cpp
     src/managers/ClamdConfigManager.h
     src/managers/ClamdConfigManager.cpp
+    src/managers/FreshclamConfigManager.h
+    src/managers/FreshclamConfigManager.cpp
     src/workers/ScanWorker.h
     src/workers/ScanWorker.cpp
     src/core/NotificationService.h

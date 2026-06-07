@@ -35,5 +35,5 @@ private:
     QApplication *m_app;
     QTranslator  *m_appTranslator  = nullptr;
     QTranslator  *m_qtTranslator   = nullptr;
-    QString       m_current        = "en";
+    QString       m_current;
 };

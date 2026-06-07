@@ -34,6 +34,7 @@ public:
 signals:
     void backRequested();
     void themeChangeRequested(int theme);
+    void serviceStateChanged();
 
 private slots:
     void onAutostartToggled(bool checked);
