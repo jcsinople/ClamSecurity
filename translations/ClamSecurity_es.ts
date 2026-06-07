@@ -1546,6 +1546,14 @@ Los archivos identificados como maliciosos seguirán siendo accesibles.
         <translation>Interfaz de seguridad de código abierto para ClamAV en Linux</translation>
     </message>
     <message>
+        <source>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License version 3.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See the GPL for more details.</source>
+        <translation>Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la GNU General Public License versión 3.
+
+Este programa se distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA. Ver la GPL para más detalles.</translation>
+    </message>
+    <message>
         <source>ClamAV: %1</source>
         <translation>ClamAV: %1</translation>
     </message>

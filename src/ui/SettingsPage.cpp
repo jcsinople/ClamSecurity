@@ -392,12 +392,22 @@ void SettingsPage::buildProtectionTab(QWidget *tab)
 
 void SettingsPage::buildAboutTab(QWidget *tab)
 {
-    auto *layout = new QVBoxLayout(tab);
-    layout->setContentsMargins(12, 20, 12, 12);
+    auto *outerLayout = new QVBoxLayout(tab);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
+
+    auto *scroll = new QScrollArea(tab);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    auto *content = new QWidget(scroll);
+    auto *layout  = new QVBoxLayout(content);
+    layout->setContentsMargins(12, 20, 12, 20);
     layout->setSpacing(14);
 
     // Logo / icon
-    auto *iconLabel = new QLabel(tab);
+    auto *iconLabel = new QLabel(content);
     QIcon appIcon = QIcon::fromTheme("security-high",
                                      QIcon(":/icons/clamsecurity.svg"));
     iconLabel->setPixmap(appIcon.pixmap(64, 64));
@@ -405,7 +415,8 @@ void SettingsPage::buildAboutTab(QWidget *tab)
     layout->addWidget(iconLabel);
 
     // App name
-    auto *nameLabel = new QLabel("<b>ClamSecurity v" + QString(APP_VERSION) + "</b>", tab);
+    auto *nameLabel = new QLabel(
+        "<b>ClamSecurity v" + QString(APP_VERSION) + "</b>", content);
     QFont nf = nameLabel->font(); nf.setPointSize(14);
     nameLabel->setFont(nf);
     nameLabel->setAlignment(Qt::AlignCenter);
@@ -413,18 +424,19 @@ void SettingsPage::buildAboutTab(QWidget *tab)
 
     // Description
     auto *descLabel = new QLabel(
-        tr("Open-source security front-end for ClamAV on Linux"), tab);
+        tr("Open-source security front-end for ClamAV on Linux"), content);
     descLabel->setAlignment(Qt::AlignCenter);
     descLabel->setWordWrap(true);
     layout->addWidget(descLabel);
 
     // Copyright / license
     auto *copyrightLabel = new QLabel(
-        "Copyright (C) 2026 Josué Carrasco\n\n"
-        "Este programa es software libre: puedes redistribuirlo y/o modificarlo\n"
-        "bajo los términos de la GNU General Public License versión 3.\n\n"
-        "Este programa se distribuye con la esperanza de que sea útil,\n"
-        "pero SIN NINGUNA GARANTÍA. Ver la GPL para más detalles.", tab);
+        "Copyright (C) 2026 Josué Carrasco\n\n" +
+        tr("This program is free software: you can redistribute it and/or modify it "
+           "under the terms of the GNU General Public License version 3.\n\n"
+           "This program is distributed in the hope that it will be useful, "
+           "but WITHOUT ANY WARRANTY. See the GPL for more details."),
+        content);
     copyrightLabel->setAlignment(Qt::AlignCenter);
     copyrightLabel->setWordWrap(true);
     QFont cf = copyrightLabel->font();
@@ -435,7 +447,7 @@ void SettingsPage::buildAboutTab(QWidget *tab)
     // GitHub link
     auto *linkLabel = new QLabel(
         "<a href=\"https://github.com/jcsinople/ClamSecurity\">"
-        "https://github.com/jcsinople/ClamSecurity</a>", tab);
+        "https://github.com/jcsinople/ClamSecurity</a>", content);
     linkLabel->setOpenExternalLinks(true);
     linkLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(linkLabel);
@@ -443,7 +455,7 @@ void SettingsPage::buildAboutTab(QWidget *tab)
     // ClamAV version
     QString clamVer = ClamAvManager::version();
     auto *clamLabel = new QLabel(tr("ClamAV: %1").arg(clamVer.isEmpty()
-                                                      ? tr("not installed") : clamVer), tab);
+                                                      ? tr("not installed") : clamVer), content);
     clamLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(clamLabel);
 
@@ -453,17 +465,19 @@ void SettingsPage::buildAboutTab(QWidget *tab)
     auto *updateRow  = new QHBoxLayout;
     m_btnCheckUpdates = new QPushButton(
         QIcon::fromTheme("system-software-update"),
-        tr("Check for Updates"), tab);
+        tr("Check for Updates"), content);
     updateRow->addStretch();
     updateRow->addWidget(m_btnCheckUpdates);
     updateRow->addStretch();
     layout->addLayout(updateRow);
 
-    m_lblUpdateStatus = new QLabel(tab);
+    m_lblUpdateStatus = new QLabel(content);
     m_lblUpdateStatus->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_lblUpdateStatus);
 
     layout->addStretch();
+    scroll->setWidget(content);
+    outerLayout->addWidget(scroll);
 
     connect(m_btnCheckUpdates, &QPushButton::clicked,
             this, &SettingsPage::onCheckForUpdates);
