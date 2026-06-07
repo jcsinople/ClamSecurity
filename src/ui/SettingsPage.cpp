@@ -26,6 +26,7 @@
 #include <QJsonObject>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QLocalServer>
 
 static const char *APP_VERSION = "1.0.0";
 
@@ -657,8 +658,12 @@ void SettingsPage::onLanguageChanged(int index)
         QMessageBox::information(this, tr("Language changed"),
             tr("The language will be applied after restarting ClamSecurity.\n\n"
                "Restart now?"));
-        QStringList args = QApplication::arguments().mid(1);
-        QProcess::startDetached(QApplication::applicationFilePath(), args);
+        // Remove the IPC socket so the new instance starts as the primary,
+        // not as a second instance that would just bring up this dying window.
+        QLocalServer::removeServer(
+            QStringLiteral("ClamSecurity-") + QString::fromLocal8Bit(qgetenv("USER")));
+        // Start fresh without --hidden so the window is always shown after restart.
+        QProcess::startDetached(QApplication::applicationFilePath(), {});
         QApplication::quit();
     }
 }

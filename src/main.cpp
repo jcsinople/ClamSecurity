@@ -2,8 +2,16 @@
 #include <QSettings>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
+#include <QLocalSocket>
+#include <QLocalServer>
 #include "mainwindow.h"
 #include "LanguageManager.h"
+
+// Socket name is per-user to avoid conflicts in multi-user systems
+static QString ipcName()
+{
+    return QStringLiteral("ClamSecurity-") + QString::fromLocal8Bit(qgetenv("USER"));
+}
 
 int main(int argc, char *argv[])
 {
@@ -36,8 +44,33 @@ int main(int argc, char *argv[])
     parser.addOption(hiddenOpt);
     parser.process(app);
 
+    // ── Single-instance guard ──────────────────────────────────────────────
+    // Try to contact an already-running instance. If one responds, tell it to
+    // show its window and exit immediately — don't start a second copy.
+    {
+        QLocalSocket probe;
+        probe.connectToServer(ipcName());
+        if (probe.waitForConnected(300)) {
+            probe.write("show\n");
+            probe.flush();
+            probe.waitForBytesWritten(500);
+            return 0;
+        }
+    }
+    // No running instance — become the server.
+    QLocalServer::removeServer(ipcName()); // clean up any stale socket file
+    auto *ipcServer = new QLocalServer(&app);
+    ipcServer->listen(ipcName());
+
     // ── Main window ────────────────────────────────────────────────────────
     MainWindow win(langMgr);
+
+    // Raise existing window when a second launch attempt arrives
+    QObject::connect(ipcServer, &QLocalServer::newConnection, [&]() {
+        auto *client = ipcServer->nextPendingConnection();
+        client->deleteLater();
+        win.showAndRaise();
+    });
 
     if (parser.isSet(scanOpt)) {
         win.startScanWithPath(parser.value(scanOpt));
