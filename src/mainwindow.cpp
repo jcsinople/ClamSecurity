@@ -479,20 +479,17 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::showAndRaise()
 {
-    const bool wasHidden = !isVisible();
+    if (!isVisible()) {
+        // Position must be set BEFORE show() on Wayland — the compositor ignores
+        // move() calls on already-mapped surfaces. setGeometry centers the client
+        // area; the title bar sits above it, making the overall window visually centered.
+        const QRect screen = QApplication::primaryScreen()->availableGeometry();
+        setGeometry(QStyle::alignedRect(Qt::LeftToRight, Qt::AlignCenter,
+                                        size(), screen));
+    }
     show();
     raise();
     activateWindow();
-    if (wasHidden) {
-        // Defer centering until after the WM has applied window decorations,
-        // so frameGeometry() returns the real size including title bar and borders.
-        QTimer::singleShot(0, this, [this]() {
-            const QRect screen = QApplication::primaryScreen()->availableGeometry();
-            QRect fg = frameGeometry();
-            fg.moveCenter(screen.center());
-            move(fg.topLeft());
-        });
-    }
 }
 
 void MainWindow::onTrayActionScanHome()
