@@ -20,18 +20,20 @@ static QString ipcName()
 // Without KWindowSystem, activateWindow() only blinks the taskbar entry
 // because Wayland requires an activation token from a user-gesture context.
 // KWindowSystem::activateWindow() handles token management on KDE Plasma.
-static void raiseAndActivate(QMainWindow &win, const QString &activationToken)
+static void raiseAndActivate(MainWindow &win, const QString &activationToken)
 {
+    // Always call showAndRaise() first — it maps the window when coming from tray
+    // and handles Wayland geometry-before-show on first appearance.
+    win.showAndRaise();
 #ifdef HAVE_KF6WINDOWSYSTEM
+    // Apply the user-gesture token AFTER the window is mapped so KWin raises it
+    // instead of just blinking the taskbar entry.
     if (!activationToken.isEmpty())
         KWindowSystem::setCurrentXdgActivationToken(activationToken);
     if (QWindow *w = win.windowHandle())
         KWindowSystem::activateWindow(w);
 #else
     Q_UNUSED(activationToken)
-    win.show();
-    win.raise();
-    win.activateWindow();
 #endif
 }
 
