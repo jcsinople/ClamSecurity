@@ -371,7 +371,13 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     QColor  labelColor;
     QString trayIcon;
 
-    switch (status.level) {
+    // Pending scheduled threats require immediate action → always Alert level.
+    const ProtectionLevel effectiveLevel =
+        (m_schedMgr->scheduledThreats().size() > 0)
+            ? ProtectionLevel::Alert
+            : status.level;
+
+    switch (effectiveLevel) {
     case ProtectionLevel::Protected:
         monState   = MonitorWidget::Status::Protected;
         labelText  = tr("Your computer is protected");
