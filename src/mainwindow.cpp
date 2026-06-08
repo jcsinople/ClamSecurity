@@ -182,7 +182,7 @@ QWidget *MainWindow::buildOverviewPage()
                             tr("Excluded paths"),    Page::Exclusions);
     m_cardQuar  = makeCard("security-low",           tr("Quarantine"),
                             tr("Isolated files"),    Page::Quarantine);
-    m_cardFW    = makeCard("network-firewall",       tr("Firewall"),
+    m_cardFW    = makeCard("firewall-config",         tr("Firewall"),
                             tr("UFW control"),       Page::Firewall);
     m_cardConf  = makeCard("configure",              tr("Settings"),
                             tr("App settings"),      Page::Settings);
