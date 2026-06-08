@@ -427,6 +427,7 @@ void SettingsPage::buildAboutTab(QWidget *tab)
         tr("Open-source security front-end for ClamAV on Linux"), content);
     descLabel->setAlignment(Qt::AlignCenter);
     descLabel->setWordWrap(true);
+    descLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     layout->addWidget(descLabel);
 
     // Copyright / license
@@ -439,6 +440,7 @@ void SettingsPage::buildAboutTab(QWidget *tab)
         content);
     copyrightLabel->setAlignment(Qt::AlignCenter);
     copyrightLabel->setWordWrap(true);
+    copyrightLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     QFont cf = copyrightLabel->font();
     cf.setPointSize(cf.pointSize() - 1);
     copyrightLabel->setFont(cf);
@@ -532,7 +534,6 @@ void SettingsPage::refresh()
 
 void SettingsPage::loadProtectionSettings()
 {
-    m_protectionDirty = false;
     ClamdOnAccessConfig cfg = m_cfgMgr->readConfig();
 
     m_chkPrevention->blockSignals(true);
@@ -561,6 +562,9 @@ void SettingsPage::loadProtectionSettings()
     m_editExcludeUname->blockSignals(false);
     m_chkExtraScanning->setChecked(cfg.extraScanning);
     m_chkDisableDDD->setChecked(cfg.disableDDD);
+
+    // Reset after all setChecked/setValue calls have fired their signals
+    m_protectionDirty = false;
 }
 
 // ── Slots ──────────────────────────────────────────────────────────────────────
