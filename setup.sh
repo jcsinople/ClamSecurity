@@ -84,17 +84,18 @@ install_build_deps() {
     case "$distro" in
         arch)
             sudo pacman -Sy --noconfirm --needed \
-                qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons
+                qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons \
+                kwindowsystem
             ;;
         debian)
             sudo apt-get install -y \
                 qt6-base-dev qt6-tools-dev cmake ninja-build \
-                build-essential libpolicykit-1-dev
+                build-essential libpolicykit-1-dev libkf6windowsystem-dev
             ;;
         fedora)
             sudo dnf install -y \
                 qt6-qtbase-devel qt6-qttools-devel cmake ninja-build \
-                gcc-c++ polkit-devel
+                gcc-c++ polkit-devel kf6-kwindowsystem-devel
             ;;
         *)
             die "No se pudieron instalar las dependencias de compilación."
