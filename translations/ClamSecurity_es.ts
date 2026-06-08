@@ -783,6 +783,20 @@ Requiere que clamav-daemon esté activo.</translation>
         <source>Warning: Review recommended</source>
         <translation>Advertencia: Se recomienda revisar</translation>
     </message>
+    <message>
+        <source>Threat detected</source>
+        <translation>Amenaza detectada</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n threat(s) found in scheduled scan &quot;%2&quot;.
+Open the Scheduled Scans panel to take action.</source>
+        <translation>
+            <numerusform>%n amenaza encontrada en el escaneo programado &quot;%2&quot;.
+Abre el panel de Escaneos Programados para tomar acción.</numerusform>
+            <numerusform>%n amenazas encontradas en el escaneo programado &quot;%2&quot;.
+Abre el panel de Escaneos Programados para tomar acción.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>NotificationService</name>
@@ -1192,6 +1206,18 @@ Se recomienda desactivar temporalmente el servicio de escaneo activo (clamav-cla
         <translation>Poner en cuarentena las amenazas detectadas automáticamente</translation>
     </message>
     <message>
+        <source>Threats will be moved to quarantine automatically and registered in the Quarantine section.</source>
+        <translation>Las amenazas se moverán a cuarentena automáticamente y quedarán registradas en la sección Cuarentena.</translation>
+    </message>
+    <message>
+        <source>If threats are detected they will be listed in the Detected Threats tab so you can take action. The file will NOT be disabled automatically.</source>
+        <translation>Si se detectan amenazas se listarán en la pestaña Amenazas Detectadas para que puedas tomar acción. El archivo NO se deshabilitará automáticamente.</translation>
+    </message>
+    <message>
+        <source>Send system notification if threats are detected</source>
+        <translation>Enviar notificación del sistema si se detectan amenazas</translation>
+    </message>
+    <message>
         <source>Validation</source>
         <translation>Validación</translation>
     </message>
@@ -1215,12 +1241,6 @@ Se recomienda desactivar temporalmente el servicio de escaneo activo (clamav-cla
         <translation>Escaneos Programados</translation>
     </message>
     <message>
-        <source>Scheduled scans run automatically using systemd user timers.
-No root permissions are required.</source>
-        <translation>Los escaneos programados se ejecutan automáticamente usando temporizadores systemd de usuario.
-No se requieren permisos de root.</translation>
-    </message>
-    <message>
         <source>Name</source>
         <translation>Nombre</translation>
     </message>
@@ -1233,8 +1253,73 @@ No se requieren permisos de root.</translation>
         <translation>Programación</translation>
     </message>
     <message>
+        <source>Last Result</source>
+        <translation>Último Resultado</translation>
+    </message>
+    <message>
         <source>Status</source>
         <translation>Estado</translation>
+    </message>
+    <message>
+        <source>Schedules</source>
+        <translation>Escaneos</translation>
+    </message>
+    <message>
+        <source>Detected Threats</source>
+        <translation>Amenazas Detectadas</translation>
+    </message>
+    <message>
+        <source>Detected Threats (%1)</source>
+        <translation>Amenazas Detectadas (%1)</translation>
+    </message>
+    <message>
+        <source>Files detected as threats by scheduled scans (auto-quarantine disabled).
+Choose an action for each file: quarantine it, add its folder to exclusions, or delete the file permanently.</source>
+        <translation>Archivos detectados como amenazas por escaneos programados (auto-cuarentena desactivada).
+Elige una acción para cada archivo: ponerlo en cuarentena, agregar su carpeta a exclusiones o eliminarlo permanentemente.</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>Archivo</translation>
+    </message>
+    <message>
+        <source>Threat</source>
+        <translation>Amenaza</translation>
+    </message>
+    <message>
+        <source>Detected by</source>
+        <translation>Detectado por</translation>
+    </message>
+    <message>
+        <source>Date</source>
+        <translation>Fecha</translation>
+    </message>
+    <message>
+        <source>Move to Quarantine</source>
+        <translation>Mover a Cuarentena</translation>
+    </message>
+    <message>
+        <source>Add Folder to Exclusions</source>
+        <translation>Agregar Carpeta a Exclusiones</translation>
+    </message>
+    <message>
+        <source>Delete File</source>
+        <translation>Eliminar Archivo</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconocida</translation>
+    </message>
+    <message numerus="yes">
+        <source>⚠ %n threat(s)</source>
+        <translation>
+            <numerusform>⚠ %n amenaza</numerusform>
+            <numerusform>⚠ %n amenazas</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>✓ Clean</source>
+        <translation>✓ Sin amenazas</translation>
     </message>
     <message>
         <source>Add</source>
@@ -1275,7 +1360,7 @@ No se requieren permisos de root.</translation>
     <message numerus="yes">
         <source>%n scheduled scan(s) configured. Scans run automatically via systemd user timers.</source>
         <translation>
-            <numerusform>%n escaneo programado configurado. Se ejecutan automáticamente mediante temporizadores systemd.</numerusform>
+            <numerusform>%n escaneo programado configurado. Se ejecuta automáticamente mediante temporizadores systemd.</numerusform>
             <numerusform>%n escaneos programados configurados. Se ejecutan automáticamente mediante temporizadores systemd.</numerusform>
         </translation>
     </message>
@@ -1298,10 +1383,64 @@ Esto también eliminará el temporizador systemd asociado.</translation>
     <message>
         <source>Scan &quot;%1&quot; started in the background.
 
-Results will be saved to the scan log.</source>
+Results will be shown here when the scan finishes.</source>
         <translation>El escaneo &quot;%1&quot; se inició en segundo plano.
 
-Los resultados se guardarán en el registro de escaneo.</translation>
+Los resultados se mostrarán aquí cuando finalice el escaneo.</translation>
+    </message>
+    <message>
+        <source>File not found</source>
+        <translation>Archivo no encontrado</translation>
+    </message>
+    <message>
+        <source>The file no longer exists:
+%1</source>
+        <translation>El archivo ya no existe:
+%1</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>Could not move the file to quarantine.
+Check file permissions.</source>
+        <translation>No se pudo mover el archivo a cuarentena.
+Verifica los permisos del archivo.</translation>
+    </message>
+    <message>
+        <source>Exclusion added</source>
+        <translation>Exclusión agregada</translation>
+    </message>
+    <message>
+        <source>The folder has been added to scan exclusions:
+%1
+
+Future scans will skip this folder.</source>
+        <translation>La carpeta se agregó a las exclusiones de escaneo:
+%1
+
+Los escaneos futuros omitirán esta carpeta.</translation>
+    </message>
+    <message>
+        <source>Could not delete the file. Check permissions.</source>
+        <translation>No se pudo eliminar el archivo. Verifica los permisos.</translation>
+    </message>
+    <message>
+        <source>Delete file</source>
+        <translation>Eliminar archivo</translation>
+    </message>
+    <message>
+        <source>Permanently delete this file?
+
+%1
+
+This action cannot be undone.</source>
+        <translation>¿Eliminar permanentemente este archivo?
+
+%1
+
+Esta acción no se puede deshacer.</translation>
     </message>
 </context>
 <context>
