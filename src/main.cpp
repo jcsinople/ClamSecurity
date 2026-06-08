@@ -4,6 +4,9 @@
 #include <QCommandLineOption>
 #include <QLocalSocket>
 #include <QLocalServer>
+#ifdef HAVE_KF6WINDOWSYSTEM
+#  include <KWindowSystem>
+#endif
 #include "mainwindow.h"
 #include "LanguageManager.h"
 
@@ -11,6 +14,25 @@
 static QString ipcName()
 {
     return QStringLiteral("ClamSecurity-") + QString::fromLocal8Bit(qgetenv("USER"));
+}
+
+// Raise and focus the window properly on KDE Wayland.
+// Without KWindowSystem, activateWindow() only blinks the taskbar entry
+// because Wayland requires an activation token from a user-gesture context.
+// KWindowSystem::activateWindow() handles token management on KDE Plasma.
+static void raiseAndActivate(QMainWindow &win, const QString &activationToken)
+{
+#ifdef HAVE_KF6WINDOWSYSTEM
+    if (!activationToken.isEmpty())
+        KWindowSystem::setCurrentXdgActivationToken(activationToken);
+    if (QWindow *w = win.windowHandle())
+        KWindowSystem::activateWindow(w);
+#else
+    Q_UNUSED(activationToken)
+    win.show();
+    win.raise();
+    win.activateWindow();
+#endif
 }
 
 int main(int argc, char *argv[])
@@ -45,13 +67,24 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     // ── Single-instance guard ──────────────────────────────────────────────
-    // Try to contact an already-running instance. If one responds, tell it to
-    // show its window and exit immediately — don't start a second copy.
+    // Try to contact an already-running instance. If one responds, forward
+    // the command AND the XDG activation token (from the user gesture in
+    // Dolphin) so the existing window can raise itself properly on Wayland.
     {
         QLocalSocket probe;
         probe.connectToServer(ipcName());
         if (probe.waitForConnected(300)) {
-            probe.write("show\n");
+            const QString token = QString::fromLocal8Bit(qgetenv("XDG_ACTIVATION_TOKEN"));
+
+            QStringList parts;
+            if (parser.isSet(scanOpt))
+                parts << QStringLiteral("scan:%1").arg(parser.value(scanOpt));
+            else
+                parts << QStringLiteral("show");
+            if (!token.isEmpty())
+                parts << QStringLiteral("activation:%1").arg(token);
+
+            probe.write((parts.join('\n') + '\n').toUtf8());
             probe.flush();
             probe.waitForBytesWritten(500);
             return 0;
@@ -65,11 +98,29 @@ int main(int argc, char *argv[])
     // ── Main window ────────────────────────────────────────────────────────
     MainWindow win(langMgr);
 
-    // Raise existing window when a second launch attempt arrives
+    // Handle commands forwarded from subsequent launch attempts
     QObject::connect(ipcServer, &QLocalServer::newConnection, [&]() {
         auto *client = ipcServer->nextPendingConnection();
-        client->deleteLater();
-        win.showAndRaise();
+        QObject::connect(client, &QLocalSocket::readyRead, [&win, client]() {
+            const QStringList lines =
+                QString::fromUtf8(client->readAll()).trimmed().split('\n');
+            client->deleteLater();
+
+            QString scanPath, activationToken;
+            for (const QString &line : lines) {
+                if (line.startsWith(QStringLiteral("scan:")))
+                    scanPath = line.mid(5);
+                else if (line.startsWith(QStringLiteral("activation:")))
+                    activationToken = line.mid(11);
+            }
+
+            if (!scanPath.isEmpty())
+                win.startScanWithPath(scanPath);
+
+            // Use the token from Dolphin's user gesture to properly raise the
+            // window on Wayland — without it the compositor only blinks the icon
+            raiseAndActivate(win, activationToken);
+        });
     });
 
     if (parser.isSet(scanOpt)) {

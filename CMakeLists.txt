@@ -7,6 +7,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets DBus Concurrent Network LinguistTools)
+find_package(KF6WindowSystem QUIET)
 
 set(PROJECT_SOURCES
     src/main.cpp
@@ -77,6 +78,11 @@ target_link_libraries(ClamSecurity PRIVATE
     Qt6::Concurrent
     Qt6::Network
 )
+
+if(KF6WindowSystem_FOUND)
+    target_link_libraries(ClamSecurity PRIVATE KF6::WindowSystem)
+    target_compile_definitions(ClamSecurity PRIVATE HAVE_KF6WINDOWSYSTEM)
+endif()
 
 # ── Internationalization ─────────────────────────────────────────────────────
 # Source language: English  (no .ts file needed for English)
