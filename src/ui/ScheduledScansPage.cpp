@@ -77,6 +77,7 @@ public:
 
         m_behaviorLabel = new QLabel(this);
         m_behaviorLabel->setWordWrap(true);
+        m_behaviorLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
         m_behaviorLabel->setStyleSheet("font-style: italic; font-size: 11px;");
         form->addRow(QString(), m_behaviorLabel);
 

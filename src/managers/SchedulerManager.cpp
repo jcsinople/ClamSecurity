@@ -220,18 +220,29 @@ QList<QPair<QString,QString>> SchedulerManager::readInfectedFiles(const QString 
         if (!line.endsWith(" FOUND"))
             continue;
         // Format: /path/to/file: ThreatName FOUND
-        QString withoutFound = line.left(line.length() - 6); // strip " FOUND"
+        QString withoutFound = line.left(line.length() - 6).trimmed();
         int sep = withoutFound.lastIndexOf(": ");
         if (sep < 0) continue;
-        result << qMakePair(withoutFound.left(sep), withoutFound.mid(sep + 2));
+        result << qMakePair(withoutFound.left(sep).trimmed(),
+                            withoutFound.mid(sep + 2).trimmed());
     }
     return result;
+}
+
+static bool logIsComplete(const QString &path)
+{
+    // Only process once clamscan has fully written the SCAN SUMMARY section.
+    // This prevents processing a partial log while clamscan is still running.
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    return f.readAll().contains("SCAN SUMMARY");
 }
 
 bool SchedulerManager::isLogProcessed(const QString &scheduleId) const
 {
     QString path = logPath(scheduleId);
     if (!QFile::exists(path)) return true;
+    if (!logIsComplete(path)) return true; // not done yet — skip silently
     QFileInfo fi(path);
     QSettings s;
     qint64 stored = s.value("scheduler/logMtime/" + scheduleId, 0).toLongLong();
@@ -290,6 +301,11 @@ void SchedulerManager::saveThreats(const QList<ScheduledThreat> &list)
 void SchedulerManager::addScheduledThreat(const ScheduledThreat &t)
 {
     auto list = scheduledThreats();
+    // Deduplicate: same file from the same schedule must only appear once
+    for (const auto &existing : list) {
+        if (existing.filePath == t.filePath && existing.scheduleId == t.scheduleId)
+            return;
+    }
     list << t;
     saveThreats(list);
 }
@@ -350,8 +366,10 @@ void SchedulerManager::createSystemdUnit(const ScanSchedule &s)
 
     QString name = unitName(s.id);
 
-    // clamscan: detect and log only — quarantining is handled by the app after reading the log
-    QString cmd = QString("/usr/bin/clamscan --recursive --infected --no-summary"
+    // clamscan: detect and log — quarantining is handled by the app after reading the log.
+    // --no-summary is intentionally omitted: the SCAN SUMMARY section serves as a
+    // completion marker so we only process the log once clamscan has fully finished.
+    QString cmd = QString("/usr/bin/clamscan --recursive --infected"
                           " --log=\"%1\" \"%2\"").arg(lp, s.path);
 
     // .service
