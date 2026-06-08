@@ -49,7 +49,6 @@ public:
     void runNow(const QString &id);
 
     QString scheduleDescription(const ScanSchedule &s) const;
-    void refreshAllUnits();
 
     // Scan results
     ScanSummary readScanSummary(const QString &scheduleId) const;
@@ -63,11 +62,26 @@ public:
     void removeScheduledThreat(const QString &threatId);
     void clearThreatsForSchedule(const QString &scheduleId);
 
+public slots:
+    // Rewrite service files with current exclusions + daemon-reload.
+    // Does NOT stop/restart timers. Safe to call anytime.
+    void syncServiceFiles();
+
+    // Full recreate: stops timers, rewrites units, re-enables. Use for schedule add/edit/remove.
+    void refreshAllUnits();
+
 signals:
     void scanLogUpdated(const QString &scheduleId);
 
 private:
     void saveAll(const QList<ScanSchedule> &list);
+
+    // Write the .service file for one schedule (exclusions from QSettings).
+    void writeServiceFile(const ScanSchedule &s);
+
+    // Write both .service and .timer files, then daemon-reload (no enable/start).
+    void writeUnitFiles(const ScanSchedule &s);
+
     void createSystemdUnit(const ScanSchedule &s);
     void removeSystemdUnit(const QString &id);
     void reloadSystemd();

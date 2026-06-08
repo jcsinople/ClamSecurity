@@ -312,7 +312,7 @@ void MainWindow::connectSignals()
     connect(m_exclusionsPage,     &ExclusionsPage::backRequested,
             this, &MainWindow::navigateBack);
     connect(m_exclusionsPage,     &ExclusionsPage::exclusionsChanged,
-            m_schedMgr, &SchedulerManager::refreshAllUnits);
+            m_schedMgr, &SchedulerManager::syncServiceFiles);
     connect(m_quarantinePage,     &QuarantinePage::backRequested,
             this, &MainWindow::navigateBack);
     connect(m_firewallPage,       &FirewallPage::backRequested,

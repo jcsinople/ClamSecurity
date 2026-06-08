@@ -12,11 +12,16 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QTimer>
 #include <algorithm>
 
 SchedulerManager::SchedulerManager(QObject *parent) : QObject(parent)
 {
     startLogWatcher();
+    // Rewrite service files once the event loop is running so existing schedules
+    // pick up the current exclusion list and ExecStartPre line even if they were
+    // created with an older version of the app.
+    QTimer::singleShot(0, this, &SchedulerManager::syncServiceFiles);
 }
 
 // ── Static helpers ─────────────────────────────────────────────────────────────
@@ -158,12 +163,32 @@ void SchedulerManager::setScheduleEnabled(const QString &id, bool enable)
 
 void SchedulerManager::runNow(const QString &id)
 {
+    // Ensure the service file is current (latest exclusions, ExecStartPre) before starting.
+    const auto list = schedules();
+    auto it = std::find_if(list.begin(), list.end(),
+        [&id](const ScanSchedule &s) { return s.id == id; });
+    if (it != list.end()) {
+        writeServiceFile(*it);
+        reloadSystemd();
+    }
     QProcess::startDetached("systemctl",
         {"--user", "start", unitName(id) + ".service"});
 }
 
+void SchedulerManager::syncServiceFiles()
+{
+    // Rewrite .service files for all schedules with current exclusions.
+    // Calls daemon-reload once. Does NOT stop or restart any timers.
+    QDir().mkpath(systemdUserDir());
+    for (const ScanSchedule &s : schedules())
+        writeServiceFile(s);
+    reloadSystemd();
+}
+
 void SchedulerManager::refreshAllUnits()
 {
+    // Full recreation: stop timers, rewrite all files, re-enable timers.
+    // Use when a schedule is added, edited, or removed.
     for (const ScanSchedule &s : schedules()) {
         removeSystemdUnit(s.id);
         createSystemdUnit(s);
@@ -241,7 +266,6 @@ QList<QPair<QString,QString>> SchedulerManager::readInfectedFiles(const QString 
 static bool logIsComplete(const QString &path)
 {
     // Only process once clamscan has fully written the SCAN SUMMARY section.
-    // This prevents processing a partial log while clamscan is still running.
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) return false;
     return f.readAll().contains("SCAN SUMMARY");
@@ -251,7 +275,7 @@ bool SchedulerManager::isLogProcessed(const QString &scheduleId) const
 {
     QString path = logPath(scheduleId);
     if (!QFile::exists(path)) return true;
-    if (!logIsComplete(path)) return true; // not done yet — skip silently
+    if (!logIsComplete(path)) return true; // scan still running — skip silently
     QFileInfo fi(path);
     QSettings s;
     qint64 stored = s.value("scheduler/logMtime/" + scheduleId, 0).toLongLong();
@@ -345,16 +369,41 @@ void SchedulerManager::startLogWatcher()
     m_logWatcher = new QFileSystemWatcher(this);
     m_logWatcher->addPath(logsDir);
 
-    connect(m_logWatcher, &QFileSystemWatcher::directoryChanged, this, [this]() {
+    // Watch any log files that already exist (e.g. from a previous run).
+    for (const ScanSchedule &s : schedules()) {
+        const QString lp = logPath(s.id);
+        if (QFile::exists(lp))
+            m_logWatcher->addPath(lp);
+    }
+
+    // Directory change: a log was created or deleted.
+    // inotify removes the watch on a deleted file, so we must re-add any log
+    // files that appeared (e.g. clamscan just created a fresh log after
+    // ExecStartPre deleted the old one).
+    connect(m_logWatcher, &QFileSystemWatcher::directoryChanged,
+            this, [this]() {
+        for (const ScanSchedule &s : schedules()) {
+            const QString lp = logPath(s.id);
+            if (QFile::exists(lp) && !m_logWatcher->files().contains(lp))
+                m_logWatcher->addPath(lp);
+        }
+        // Check for any already-complete logs
         for (const ScanSchedule &s : schedules()) {
             if (!isLogProcessed(s.id))
                 emit scanLogUpdated(s.id);
         }
     });
-    connect(m_logWatcher, &QFileSystemWatcher::fileChanged, this, [this](const QString &path) {
-        // Individual log file changed (e.g. after runNow)
+
+    // File change: clamscan is writing to the log.
+    // On Linux/inotify, Qt removes the watch after the file is deleted.
+    // Re-add if the file was recreated at the same path.
+    connect(m_logWatcher, &QFileSystemWatcher::fileChanged,
+            this, [this](const QString &path) {
+        if (QFile::exists(path) && !m_logWatcher->files().contains(path))
+            m_logWatcher->addPath(path);
+
         QFileInfo fi(path);
-        QString id = fi.completeBaseName();
+        const QString id = fi.completeBaseName();
         if (!isLogProcessed(id))
             emit scanLogUpdated(id);
     });
@@ -362,85 +411,86 @@ void SchedulerManager::startLogWatcher()
 
 // ── Systemd unit management ────────────────────────────────────────────────────
 
-void SchedulerManager::createSystemdUnit(const ScanSchedule &s)
+void SchedulerManager::writeServiceFile(const ScanSchedule &s)
 {
-    QDir().mkpath(systemdUserDir());
-
-    QString lp = logPath(s.id);
-    QDir().mkpath(QFileInfo(lp).absolutePath());
-
-    // Watch the individual log file so we get notified when it changes
-    if (m_logWatcher && !m_logWatcher->files().contains(lp))
-        m_logWatcher->addPath(lp);
-
+    QString lp   = logPath(s.id);
     QString name = unitName(s.id);
 
-    // Read exclusions from QSettings so clamscan respects the same paths/extensions
-    // the user configured in the Exclusions panel of the app.
+    QDir().mkpath(QFileInfo(lp).absolutePath());
+
+    // Ensure the new (or existing) log file is watched
+    if (m_logWatcher && QFile::exists(lp) && !m_logWatcher->files().contains(lp))
+        m_logWatcher->addPath(lp);
+
+    // Build exclusion arguments from current app settings
     QSettings qs;
     QStringList excludePaths = qs.value("scan/exclusions", QStringList()).toStringList();
     QStringList excludeExts  = qs.value("scan/extension_exclusions", QStringList()).toStringList();
 
     QStringList excludeArgs;
     for (const QString &p : excludePaths) {
-        QString escaped = QRegularExpression::escape(p);
-        QFileInfo fi(p);
-        if (fi.isDir())
+        // Anchor at start so /foo/bar doesn't accidentally match /other/foo/bar
+        QString escaped = "^" + QRegularExpression::escape(p);
+        if (QFileInfo(p).isDir())
             excludeArgs << "--exclude-dir=" + escaped;
         else
-            excludeArgs << "--exclude=" + escaped;
+            excludeArgs << "--exclude=" + escaped + "$";
     }
     for (const QString &ext : excludeExts) {
         QString e = ext.startsWith('.') ? ext : '.' + ext;
         excludeArgs << "--exclude=" + QRegularExpression::escape(e) + "$";
     }
 
-    // clamscan: detect and log — quarantining is handled by the app after reading the log.
+    // clamscan: detect and log. quarantining is handled by the app after reading the log.
+    // ExecStartPre deletes the old log so each run produces a fresh file and the app
+    // never re-processes results from previous executions.
     // --no-summary is intentionally omitted: the SCAN SUMMARY section serves as a
     // completion marker so we only process the log once clamscan has fully finished.
-    QString cmd = QString("/usr/bin/clamscan --recursive --infected"
-                          " --log=\"%1\"").arg(lp);
+    QString cmd = QString("/usr/bin/clamscan --recursive --infected --log=\"%1\"").arg(lp);
     if (!excludeArgs.isEmpty())
         cmd += ' ' + excludeArgs.join(' ');
     cmd += " \"" + s.path + '"';
 
-    // .service
-    {
-        QFile f(systemdUserDir() + "/" + name + ".service");
-        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&f);
-            out << "[Unit]\n"
-                << "Description=ClamSecurity Scheduled Scan: " << s.name << "\n\n"
-                << "[Service]\n"
-                << "Type=oneshot\n"
-                << "SuccessExitStatus=0 1\n"
-                // Delete the previous log so each run produces a fresh log and the
-                // app doesn't re-process results from earlier executions.
-                << "ExecStartPre=/bin/rm -f " << lp << "\n"
-                << "ExecStart=" << cmd << "\n";
-        }
+    QFile f(systemdUserDir() + "/" + name + ".service");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&f);
+        out << "[Unit]\n"
+            << "Description=ClamSecurity Scheduled Scan: " << s.name << "\n\n"
+            << "[Service]\n"
+            << "Type=oneshot\n"
+            << "SuccessExitStatus=0 1\n"
+            << "ExecStartPre=/bin/rm -f " << lp << "\n"
+            << "ExecStart=" << cmd << "\n";
     }
+}
 
-    // .timer
-    {
-        QFile f(systemdUserDir() + "/" + name + ".timer");
-        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&f);
-            out << "[Unit]\n"
-                << "Description=ClamSecurity Scan Timer: " << s.name << "\n\n"
-                << "[Timer]\n"
-                << "OnCalendar=" << calendarSpec(s) << "\n"
-                << "Persistent=true\n\n"
-                << "[Install]\n"
-                << "WantedBy=timers.target\n";
-        }
+void SchedulerManager::writeUnitFiles(const ScanSchedule &s)
+{
+    writeServiceFile(s);
+
+    QString name = unitName(s.id);
+    QFile f(systemdUserDir() + "/" + name + ".timer");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&f);
+        out << "[Unit]\n"
+            << "Description=ClamSecurity Scan Timer: " << s.name << "\n\n"
+            << "[Timer]\n"
+            << "OnCalendar=" << calendarSpec(s) << "\n"
+            << "Persistent=true\n\n"
+            << "[Install]\n"
+            << "WantedBy=timers.target\n";
     }
+}
 
+void SchedulerManager::createSystemdUnit(const ScanSchedule &s)
+{
+    QDir().mkpath(systemdUserDir());
+    writeUnitFiles(s);
     reloadSystemd();
 
     if (s.enabled)
         QProcess::startDetached("systemctl",
-            {"--user", "enable", "--now", name + ".timer"});
+            {"--user", "enable", "--now", unitName(s.id) + ".timer"});
 }
 
 void SchedulerManager::removeSystemdUnit(const QString &id)
