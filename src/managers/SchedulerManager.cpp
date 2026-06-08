@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <algorithm>
 
 SchedulerManager::SchedulerManager(QObject *parent) : QObject(parent)
@@ -159,6 +160,14 @@ void SchedulerManager::runNow(const QString &id)
 {
     QProcess::startDetached("systemctl",
         {"--user", "start", unitName(id) + ".service"});
+}
+
+void SchedulerManager::refreshAllUnits()
+{
+    for (const ScanSchedule &s : schedules()) {
+        removeSystemdUnit(s.id);
+        createSystemdUnit(s);
+    }
 }
 
 QString SchedulerManager::scheduleDescription(const ScanSchedule &s) const
@@ -366,11 +375,34 @@ void SchedulerManager::createSystemdUnit(const ScanSchedule &s)
 
     QString name = unitName(s.id);
 
+    // Read exclusions from QSettings so clamscan respects the same paths/extensions
+    // the user configured in the Exclusions panel of the app.
+    QSettings qs;
+    QStringList excludePaths = qs.value("scan/exclusions", QStringList()).toStringList();
+    QStringList excludeExts  = qs.value("scan/extension_exclusions", QStringList()).toStringList();
+
+    QStringList excludeArgs;
+    for (const QString &p : excludePaths) {
+        QString escaped = QRegularExpression::escape(p);
+        QFileInfo fi(p);
+        if (fi.isDir())
+            excludeArgs << "--exclude-dir=" + escaped;
+        else
+            excludeArgs << "--exclude=" + escaped;
+    }
+    for (const QString &ext : excludeExts) {
+        QString e = ext.startsWith('.') ? ext : '.' + ext;
+        excludeArgs << "--exclude=" + QRegularExpression::escape(e) + "$";
+    }
+
     // clamscan: detect and log — quarantining is handled by the app after reading the log.
     // --no-summary is intentionally omitted: the SCAN SUMMARY section serves as a
     // completion marker so we only process the log once clamscan has fully finished.
     QString cmd = QString("/usr/bin/clamscan --recursive --infected"
-                          " --log=\"%1\" \"%2\"").arg(lp, s.path);
+                          " --log=\"%1\"").arg(lp);
+    if (!excludeArgs.isEmpty())
+        cmd += ' ' + excludeArgs.join(' ');
+    cmd += " \"" + s.path + '"';
 
     // .service
     {
@@ -382,6 +414,9 @@ void SchedulerManager::createSystemdUnit(const ScanSchedule &s)
                 << "[Service]\n"
                 << "Type=oneshot\n"
                 << "SuccessExitStatus=0 1\n"
+                // Delete the previous log so each run produces a fresh log and the
+                // app doesn't re-process results from earlier executions.
+                << "ExecStartPre=/bin/rm -f " << lp << "\n"
                 << "ExecStart=" << cmd << "\n";
         }
     }

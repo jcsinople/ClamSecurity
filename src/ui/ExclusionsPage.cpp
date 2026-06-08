@@ -149,7 +149,7 @@ void ExclusionsPage::onAddFile()
 {
     QString file = QFileDialog::getOpenFileName(
         this, tr("Select file to exclude"), QDir::homePath());
-    if (!file.isEmpty()) { m_clam->addExclusion(file); refresh(); }
+    if (!file.isEmpty()) { m_clam->addExclusion(file); refresh(); emit exclusionsChanged(); }
 }
 
 void ExclusionsPage::onAddFolder()
@@ -157,7 +157,7 @@ void ExclusionsPage::onAddFolder()
     QString dir = QFileDialog::getExistingDirectory(
         this, tr("Select folder to exclude"), QDir::homePath(),
         QFileDialog::ShowDirsOnly);
-    if (!dir.isEmpty()) { m_clam->addExclusion(dir); refresh(); }
+    if (!dir.isEmpty()) { m_clam->addExclusion(dir); refresh(); emit exclusionsChanged(); }
 }
 
 void ExclusionsPage::onRemoveSelected()
@@ -165,6 +165,7 @@ void ExclusionsPage::onRemoveSelected()
     for (QListWidgetItem *item : m_list->selectedItems())
         m_clam->removeExclusion(item->text());
     refresh();
+    emit exclusionsChanged();
 }
 
 void ExclusionsPage::onAddExtension()
@@ -184,6 +185,7 @@ void ExclusionsPage::onAddExtension()
 
     m_clam->addExcludedExtension(e);
     refresh();
+    emit exclusionsChanged();
 }
 
 void ExclusionsPage::onRemoveExtension()
@@ -191,6 +193,7 @@ void ExclusionsPage::onRemoveExtension()
     for (QListWidgetItem *item : m_extList->selectedItems())
         m_clam->removeExcludedExtension(item->text());
     refresh();
+    emit exclusionsChanged();
 }
 
 void ExclusionsPage::onApplyToRT()

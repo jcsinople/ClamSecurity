@@ -20,6 +20,7 @@ public:
 
 signals:
     void backRequested();
+    void exclusionsChanged();
 
 private slots:
     void onAddFile();

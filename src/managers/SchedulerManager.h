@@ -49,6 +49,7 @@ public:
     void runNow(const QString &id);
 
     QString scheduleDescription(const ScanSchedule &s) const;
+    void refreshAllUnits();
 
     // Scan results
     ScanSummary readScanSummary(const QString &scheduleId) const;

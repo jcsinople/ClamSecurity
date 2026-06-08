@@ -42,7 +42,7 @@ private:
     void openScheduleDialog(ScanSchedule *schedule);
     void buildSchedulesTab(QWidget *tab);
     void buildThreatsTab(QWidget *tab);
-    void processNewResults(const QString &scheduleId);
+    void processNewResults(const QString &scheduleId, bool notify = true);
     void refreshThreats();
 
     SchedulerManager  *m_mgr;

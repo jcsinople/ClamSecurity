@@ -224,6 +224,18 @@ ScheduledScansPage::ScheduledScansPage(SchedulerManager *mgr,
             this, &ScheduledScansPage::onScanLogUpdated);
 
     refresh();
+
+    // Process any logs that completed while the app was not running (no notification)
+    QMetaObject::invokeMethod(this, [this]() {
+        bool any = false;
+        for (const ScanSchedule &s : m_mgr->schedules()) {
+            if (!m_mgr->isLogProcessed(s.id)) {
+                processNewResults(s.id, false);
+                any = true;
+            }
+        }
+        if (any) refresh();
+    }, Qt::QueuedConnection);
 }
 
 // ── Build tabs ─────────────────────────────────────────────────────────────────
@@ -432,7 +444,7 @@ void ScheduledScansPage::refreshThreats()
 
 // ── Process new scan results ───────────────────────────────────────────────────
 
-void ScheduledScansPage::processNewResults(const QString &scheduleId)
+void ScheduledScansPage::processNewResults(const QString &scheduleId, bool notify)
 {
     if (m_mgr->isLogProcessed(scheduleId)) return;
 
@@ -444,17 +456,15 @@ void ScheduledScansPage::processNewResults(const QString &scheduleId)
     const ScanSchedule &s = *it;
     const auto infected = m_mgr->readInfectedFiles(scheduleId);
 
+    int newlyAdded = 0;
     if (!infected.isEmpty()) {
         if (s.quarantine) {
-            // Auto-quarantine: move each infected file through QuarantineManager
             for (const auto &pair : infected) {
-                const QString &path   = pair.first;
-                const QString &threat = pair.second;
-                if (QFile::exists(path))
-                    m_qmgr->quarantineFile(path, threat);
+                if (QFile::exists(pair.first))
+                    if (m_qmgr->quarantineFile(pair.first, pair.second))
+                        ++newlyAdded;
             }
         } else {
-            // No auto-quarantine: record in the threats list
             QDateTime now = QDateTime::currentDateTime();
             for (const auto &pair : infected) {
                 ScheduledThreat t;
@@ -464,12 +474,16 @@ void ScheduledScansPage::processNewResults(const QString &scheduleId)
                 t.filePath     = pair.first;
                 t.threatName   = pair.second;
                 t.detectedAt   = now;
+                const int before = m_mgr->scheduledThreats().size();
                 m_mgr->addScheduledThreat(t);
+                if (m_mgr->scheduledThreats().size() > before)
+                    ++newlyAdded;
             }
         }
 
-        if (s.notify)
-            emit threatNotification(s.name, infected.size());
+        // Only notify when there are genuinely new results and app is active
+        if (notify && s.notify && newlyAdded > 0)
+            emit threatNotification(s.name, newlyAdded);
     }
 
     m_mgr->markLogProcessed(scheduleId);

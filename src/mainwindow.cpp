@@ -311,6 +311,8 @@ void MainWindow::connectSignals()
             this, &MainWindow::navigateBack);
     connect(m_exclusionsPage,     &ExclusionsPage::backRequested,
             this, &MainWindow::navigateBack);
+    connect(m_exclusionsPage,     &ExclusionsPage::exclusionsChanged,
+            m_schedMgr, &SchedulerManager::refreshAllUnits);
     connect(m_quarantinePage,     &QuarantinePage::backRequested,
             this, &MainWindow::navigateBack);
     connect(m_firewallPage,       &FirewallPage::backRequested,
