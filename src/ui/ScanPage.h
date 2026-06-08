@@ -46,7 +46,8 @@ private slots:
 
     void onQuarantineChecked();
     void onIgnoreChecked();
-    void onAddExclusionChecked();
+    void onExcludeFileChecked();
+    void onExcludeFolderChecked();
     void onItemChanged(QListWidgetItem *item);
 
     void onBackClicked();
@@ -78,7 +79,8 @@ private:
     QListWidget  *m_threatList;
     QPushButton  *m_btnQuarantine;
     QPushButton  *m_btnIgnore;
-    QPushButton  *m_btnAddExcl;
+    QPushButton  *m_btnExclFile;
+    QPushButton  *m_btnExclFolder;
     QPushButton  *m_btnHome;
     QPushButton  *m_btnCustom;
     QPushButton  *m_btnStop;

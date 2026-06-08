@@ -77,14 +77,18 @@ ScanPage::ScanPage(ClamAvManager      *clam,
                                         tr("Quarantine Checked"), this);
     m_btnIgnore       = new QPushButton(QIcon::fromTheme("list-remove"),
                                         tr("Ignore Checked"), this);
-    m_btnAddExcl      = new QPushButton(QIcon::fromTheme("folder-open"),
-                                        tr("Add to Exclusions"), this);
+    m_btnExclFile     = new QPushButton(QIcon::fromTheme("document-new"),
+                                        tr("Exclude File"), this);
+    m_btnExclFolder   = new QPushButton(QIcon::fromTheme("folder-new"),
+                                        tr("Exclude Folder"), this);
     m_btnQuarantine->setEnabled(false);
     m_btnIgnore->setEnabled(false);
-    m_btnAddExcl->setEnabled(false);
+    m_btnExclFile->setEnabled(false);
+    m_btnExclFolder->setEnabled(false);
     actRow->addWidget(m_btnQuarantine);
     actRow->addWidget(m_btnIgnore);
-    actRow->addWidget(m_btnAddExcl);
+    actRow->addWidget(m_btnExclFile);
+    actRow->addWidget(m_btnExclFolder);
     threatLayout->addLayout(actRow);
 
     layout->addWidget(threatGroup);
@@ -109,9 +113,10 @@ ScanPage::ScanPage(ClamAvManager      *clam,
     connect(m_btnCustom,     &QPushButton::clicked, this, &ScanPage::onScanCustom);
     connect(m_btnStop,       &QPushButton::clicked, this, &ScanPage::onStopScan);
     connect(m_btnBack,       &QPushButton::clicked, this, &ScanPage::onBackClicked);
-    connect(m_btnQuarantine, &QPushButton::clicked, this, &ScanPage::onQuarantineChecked);
-    connect(m_btnIgnore,     &QPushButton::clicked, this, &ScanPage::onIgnoreChecked);
-    connect(m_btnAddExcl,    &QPushButton::clicked, this, &ScanPage::onAddExclusionChecked);
+    connect(m_btnQuarantine,  &QPushButton::clicked, this, &ScanPage::onQuarantineChecked);
+    connect(m_btnIgnore,      &QPushButton::clicked, this, &ScanPage::onIgnoreChecked);
+    connect(m_btnExclFile,    &QPushButton::clicked, this, &ScanPage::onExcludeFileChecked);
+    connect(m_btnExclFolder,  &QPushButton::clicked, this, &ScanPage::onExcludeFolderChecked);
     connect(m_threatList, &QListWidget::itemChanged,
             this, &ScanPage::onItemChanged);
 }
@@ -329,7 +334,8 @@ void ScanPage::onItemChanged(QListWidgetItem *)
     bool anyChecked = !checkedItems().isEmpty();
     m_btnQuarantine->setEnabled(anyChecked);
     m_btnIgnore->setEnabled(anyChecked);
-    m_btnAddExcl->setEnabled(anyChecked);
+    m_btnExclFile->setEnabled(anyChecked);
+    m_btnExclFolder->setEnabled(anyChecked);
 }
 
 void ScanPage::onQuarantineChecked()
@@ -368,17 +374,47 @@ void ScanPage::onIgnoreChecked()
     onItemChanged(nullptr);
 }
 
-void ScanPage::onAddExclusionChecked()
+void ScanPage::onExcludeFileChecked()
 {
-    for (QListWidgetItem *item : checkedItems()) {
+    const auto items = checkedItems();
+    for (QListWidgetItem *item : items) {
         ThreatItem data = item->data(Qt::UserRole).value<ThreatItem>();
-        m_clam->addExclusion(data.filePath);   // add the file itself, not the folder
+        m_clam->addExclusion(data.filePath);
         data.actionTaken = true;
         item->setData(Qt::UserRole, QVariant::fromValue(data));
         item->setText(item->text() + tr("  [EXCLUDED]"));
         item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
     }
     onItemChanged(nullptr);
+    if (!items.isEmpty())
+        QMessageBox::information(this, tr("Exclusion added"),
+            tr("The selected file(s) have been added to scan exclusions.\n\n"
+               "To also exclude from real-time protection, go to the "
+               "Exclusions page and click \"Apply to Real-Time Protection\"."));
+}
+
+void ScanPage::onExcludeFolderChecked()
+{
+    const auto items = checkedItems();
+    QSet<QString> added;
+    for (QListWidgetItem *item : items) {
+        ThreatItem data = item->data(Qt::UserRole).value<ThreatItem>();
+        QString folder = QFileInfo(data.filePath).absolutePath();
+        if (!added.contains(folder)) {
+            m_clam->addExclusion(folder);
+            added.insert(folder);
+        }
+        data.actionTaken = true;
+        item->setData(Qt::UserRole, QVariant::fromValue(data));
+        item->setText(item->text() + tr("  [EXCLUDED]"));
+        item->setFlags(item->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable));
+    }
+    onItemChanged(nullptr);
+    if (!items.isEmpty())
+        QMessageBox::information(this, tr("Exclusion added"),
+            tr("The folder(s) have been added to scan exclusions.\n\n"
+               "To also exclude from real-time protection, go to the "
+               "Exclusions page and click \"Apply to Real-Time Protection\"."));
 }
 
 // ─── Back navigation ───────────────────────────────────────────────────────────

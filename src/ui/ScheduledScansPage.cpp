@@ -635,7 +635,9 @@ void ScheduledScansPage::onThreatExcludeFile()
 
     QMessageBox::information(this, tr("Exclusion added"),
         tr("The file has been added to scan exclusions:\n%1\n\n"
-           "Future scans will skip this file.").arg(filePath));
+           "Future scans will skip this file.\n\n"
+           "To also exclude it from real-time protection, go to the "
+           "Exclusions page and click \"Apply to Real-Time Protection\".").arg(filePath));
 }
 
 void ScheduledScansPage::onThreatExcludeFolder()
@@ -654,7 +656,9 @@ void ScheduledScansPage::onThreatExcludeFolder()
 
     QMessageBox::information(this, tr("Exclusion added"),
         tr("The folder has been added to scan exclusions:\n%1\n\n"
-           "Future scans will skip this folder.").arg(folder));
+           "Future scans will skip this folder.\n\n"
+           "To also exclude it from real-time protection, go to the "
+           "Exclusions page and click \"Apply to Real-Time Protection\".").arg(folder));
 }
 
 void ScheduledScansPage::onThreatDelete()

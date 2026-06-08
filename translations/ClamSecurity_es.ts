@@ -969,8 +969,12 @@ Para restaurarlo, desactiva temporalmente el servicio de escaneo activo (clamav-
         <translation>Ignorar Seleccionados</translation>
     </message>
     <message>
-        <source>Add to Exclusions</source>
-        <translation>Agregar a Exclusiones</translation>
+        <source>Exclude File</source>
+        <translation>Excluir Archivo</translation>
+    </message>
+    <message>
+        <source>Exclude Folder</source>
+        <translation>Excluir Carpeta</translation>
     </message>
     <message>
         <source>Move to Quarantine</source>
@@ -1075,6 +1079,26 @@ Para restaurarlo, desactiva temporalmente el servicio de escaneo activo (clamav-
     <message>
         <source>  [EXCLUDED]</source>
         <translation>  [EXCLUIDO]</translation>
+    </message>
+    <message>
+        <source>Exclusion added</source>
+        <translation>Exclusión agregada</translation>
+    </message>
+    <message>
+        <source>The selected file(s) have been added to scan exclusions.
+
+To also exclude from real-time protection, go to the Exclusions page and click &quot;Apply to Real-Time Protection&quot;.</source>
+        <translation>Los archivos seleccionados se agregaron a las exclusiones de escaneo.
+
+Para excluirlos también de la protección en tiempo real, ve a la página de Exclusiones y haz clic en &quot;Aplicar a Protección en Tiempo Real&quot;.</translation>
+    </message>
+    <message>
+        <source>The folder(s) have been added to scan exclusions.
+
+To also exclude from real-time protection, go to the Exclusions page and click &quot;Apply to Real-Time Protection&quot;.</source>
+        <translation>Las carpetas se agregaron a las exclusiones de escaneo.
+
+Para excluirlas también de la protección en tiempo real, ve a la página de Exclusiones y haz clic en &quot;Aplicar a Protección en Tiempo Real&quot;.</translation>
     </message>
     <message>
         <source>Scan in progress</source>
@@ -1459,21 +1483,29 @@ Verifica los permisos del archivo.</translation>
         <source>The file has been added to scan exclusions:
 %1
 
-Future scans will skip this file.</source>
+Future scans will skip this file.
+
+To also exclude it from real-time protection, go to the Exclusions page and click &quot;Apply to Real-Time Protection&quot;.</source>
         <translation>El archivo se agregó a las exclusiones de escaneo:
 %1
 
-Los escaneos futuros omitirán este archivo.</translation>
+Los escaneos futuros omitirán este archivo.
+
+Para excluirlo también de la protección en tiempo real, ve a la página de Exclusiones y haz clic en &quot;Aplicar a Protección en Tiempo Real&quot;.</translation>
     </message>
     <message>
         <source>The folder has been added to scan exclusions:
 %1
 
-Future scans will skip this folder.</source>
+Future scans will skip this folder.
+
+To also exclude it from real-time protection, go to the Exclusions page and click &quot;Apply to Real-Time Protection&quot;.</source>
         <translation>La carpeta se agregó a las exclusiones de escaneo:
 %1
 
-Los escaneos futuros omitirán esta carpeta.</translation>
+Los escaneos futuros omitirán esta carpeta.
+
+Para excluirla también de la protección en tiempo real, ve a la página de Exclusiones y haz clic en &quot;Aplicar a Protección en Tiempo Real&quot;.</translation>
     </message>
     <message>
         <source>Could not delete the file. Check permissions.</source>
