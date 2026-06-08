@@ -483,7 +483,7 @@ void ScheduledScansPage::processNewResults(const QString &scheduleId, bool notif
 
         // Only notify when there are genuinely new results and app is active
         if (notify && s.notify && newlyAdded > 0)
-            emit threatNotification(s.name, newlyAdded);
+            emit threatNotification(s.name, newlyAdded, s.quarantine);
     }
 
     m_mgr->markLogProcessed(scheduleId);

@@ -358,6 +358,21 @@ To quarantine this file, temporarily disable the real-time scanning service (cla
         <source>Files in quarantine — already neutralized, no action required</source>
         <translation>Archivos en cuarentena — ya neutralizados, no se requiere acción</translation>
     </message>
+    <message>
+        <source>Scheduled scan threats</source>
+        <translation>Amenazas de escaneos programados</translation>
+    </message>
+    <message>
+        <source>No pending threats from scheduled scans</source>
+        <translation>Sin amenazas pendientes de escaneos programados</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n file(s) detected by scheduled scans — open Scheduled Scans to take action.</source>
+        <translation>
+            <numerusform>%n archivo detectado por escaneos programados — abre Escaneos Programados para tomar acción.</numerusform>
+            <numerusform>%n archivos detectados por escaneos programados — abre Escaneos Programados para tomar acción.</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>ExclusionsPage</name>
@@ -795,6 +810,30 @@ Open the Scheduled Scans panel to take action.</source>
 Abre el panel de Escaneos Programados para tomar acción.</numerusform>
             <numerusform>%n amenazas encontradas en el escaneo programado &quot;%2&quot;.
 Abre el panel de Escaneos Programados para tomar acción.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n threat(s) found in scheduled scan &quot;%2&quot;.
+Files were moved to quarantine automatically.</source>
+        <translation>
+            <numerusform>%n amenaza encontrada en el escaneo programado &quot;%2&quot;.
+Los archivos fueron movidos a cuarentena automáticamente.</numerusform>
+            <numerusform>%n amenazas encontradas en el escaneo programado &quot;%2&quot;.
+Los archivos fueron movidos a cuarentena automáticamente.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n pending threat(s)</source>
+        <translation>
+            <numerusform>%n amenaza pendiente</numerusform>
+            <numerusform>%n amenazas pendientes</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>⚠ %n file(s) found by scheduled scans — open Scheduled Scans to take action.</source>
+        <translation>
+            <numerusform>⚠ %n archivo detectado por escaneos programados — abre Escaneos Programados para tomar acción.</numerusform>
+            <numerusform>⚠ %n archivos detectados por escaneos programados — abre Escaneos Programados para tomar acción.</numerusform>
         </translation>
     </message>
 </context>

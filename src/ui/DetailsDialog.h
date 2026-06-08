@@ -24,4 +24,5 @@ private:
     QLabel *m_firewallRow;
     QLabel *m_threatsRow;
     QLabel *m_quarantineRow;
+    QLabel *m_schedThreatsRow;
 };

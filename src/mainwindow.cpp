@@ -324,14 +324,29 @@ void MainWindow::connectSignals()
     connect(m_scheduledScansPage,   &ScheduledScansPage::backRequested,
             this, &MainWindow::navigateBack);
     connect(m_scheduledScansPage, &ScheduledScansPage::threatNotification,
-            this, [this](const QString &scanName, int count) {
-                m_notif->send(
-                    tr("Threat detected"),
-                    tr("%n threat(s) found in scheduled scan \"%2\".\n"
-                       "Open the Scheduled Scans panel to take action.", nullptr, count)
-                        .arg(scanName),
-                    "security-low", 2);
+            this, [this](const QString &scanName, int count, bool autoQuarantined) {
+                const QString body = autoQuarantined
+                    ? tr("%n threat(s) found in scheduled scan \"%2\".\n"
+                         "Files were moved to quarantine automatically.", nullptr, count)
+                          .arg(scanName)
+                    : tr("%n threat(s) found in scheduled scan \"%2\".\n"
+                         "Open the Scheduled Scans panel to take action.", nullptr, count)
+                          .arg(scanName);
+                m_notif->send(tr("Threat detected"), body, "security-low", 2);
             });
+
+    // Refresh quarantine card immediately when a file is quarantined (e.g. by a
+    // scheduled scan running in the background) without waiting for a full status refresh.
+    connect(m_quar, &QuarantineManager::quarantineChanged, this, [this]() {
+        updateCardSubtitles(m_checker->currentStatus());
+    });
+
+    // Refresh scheduler card and status sub-text when a scan log is updated.
+    connect(m_schedMgr, &SchedulerManager::scanLogUpdated, this, [this](const QString &) {
+        const SystemStatus s = m_checker->currentStatus();
+        updateStatusDisplay(s);
+        updateCardSubtitles(s);
+    });
 
     connect(m_settingsPage, &SettingsPage::themeChangeRequested,
             this, &MainWindow::applyTheme);
@@ -385,10 +400,14 @@ void MainWindow::updateStatusDisplay(const SystemStatus &status)
     p.setColor(QPalette::WindowText, labelColor);
     m_statusLabel->setPalette(p);
 
-    if (status.issues.isEmpty())
-        m_statusSub->setText(tr("All components are working correctly."));
-    else
-        m_statusSub->setText(status.issues.join("\n"));
+    QStringList allIssues = status.issues;
+    const int stCount = m_schedMgr->scheduledThreats().size();
+    if (stCount > 0)
+        allIssues << tr("⚠ %n file(s) found by scheduled scans — open Scheduled Scans to take action.",
+                        nullptr, stCount);
+    m_statusSub->setText(allIssues.isEmpty()
+        ? tr("All components are working correctly.")
+        : allIssues.join("\n"));
 
     // Tray icon
     m_tray->setIcon(QIcon::fromTheme(trayIcon, QIcon(":/icons/clamsecurity.svg")));
@@ -429,13 +448,18 @@ void MainWindow::updateCardSubtitles(const SystemStatus &status)
     m_cardExcl->setSubtitle(tr("%n excluded path(s)", nullptr, exclList.size()));
     m_cardExcl->setStatusColor(palette().color(QPalette::Text));
 
-    // Scheduler card
-    int schedCount = m_schedMgr->schedules().size();
-    m_cardScheduler->setSubtitle(
-        schedCount == 0
+    // Scheduler card: highlight pending threats
+    int schedCount   = m_schedMgr->schedules().size();
+    int pendingThreats = m_schedMgr->scheduledThreats().size();
+    if (pendingThreats > 0) {
+        m_cardScheduler->setSubtitle(tr("%n pending threat(s)", nullptr, pendingThreats));
+        m_cardScheduler->setStatusColor(QColor(0xC6, 0x28, 0x28));
+    } else {
+        m_cardScheduler->setSubtitle(schedCount == 0
             ? tr("No schedules")
             : tr("%n schedule(s)", nullptr, schedCount));
-    m_cardScheduler->setStatusColor(palette().color(QPalette::Text));
+        m_cardScheduler->setStatusColor(palette().color(QPalette::Text));
+    }
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
@@ -476,7 +500,9 @@ void MainWindow::navigateBack()
 void MainWindow::onShowDetails()
 {
     DetailsDialog dlg(this);
-    dlg.updateStatus(m_checker->currentStatus());
+    SystemStatus s = m_checker->currentStatus();
+    s.scheduledThreatsCount = m_schedMgr->scheduledThreats().size();
+    dlg.updateStatus(s);
     dlg.exec();
 }
 

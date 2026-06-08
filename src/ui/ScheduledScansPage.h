@@ -22,7 +22,7 @@ public:
 
 signals:
     void backRequested();
-    void threatNotification(const QString &scheduleName, int count);
+    void threatNotification(const QString &scheduleName, int count, bool autoQuarantined);
 
 private slots:
     void onAdd();

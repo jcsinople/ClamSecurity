@@ -3,6 +3,7 @@
 #include <QDialogButtonBox>
 #include <QGroupBox>
 #include <QFont>
+#include <QSizePolicy>
 
 static const QString ROW_OK   = "✓  %1";
 static const QString ROW_FAIL = "✗  %1";
@@ -24,14 +25,15 @@ DetailsDialog::DetailsDialog(QWidget *parent) : QDialog(parent)
     auto *gl     = new QVBoxLayout(group);
     gl->setSpacing(10);
 
-    m_clamavRow     = makeRow(tr("ClamAV installed"));
-    m_daemonRow     = makeRow(tr("ClamAV Daemon (clamav-daemon)"));
-    m_realtimeRow   = makeRow(tr("Real-Time Protection (clamav-clamonacc)"));
-    m_preventionRow = makeRow(tr("OnAccessPrevention"));
-    m_sigRow        = makeRow(tr("Signature database up to date"));
-    m_firewallRow   = makeRow(tr("Firewall (UFW) active"));
-    m_threatsRow    = makeRow(tr("No active threats"));
-    m_quarantineRow = makeRow(tr("Quarantine"));
+    m_clamavRow      = makeRow(tr("ClamAV installed"));
+    m_daemonRow      = makeRow(tr("ClamAV Daemon (clamav-daemon)"));
+    m_realtimeRow    = makeRow(tr("Real-Time Protection (clamav-clamonacc)"));
+    m_preventionRow  = makeRow(tr("OnAccessPrevention"));
+    m_sigRow         = makeRow(tr("Signature database up to date"));
+    m_firewallRow    = makeRow(tr("Firewall (UFW) active"));
+    m_threatsRow     = makeRow(tr("No active threats"));
+    m_quarantineRow  = makeRow(tr("Quarantine"));
+    m_schedThreatsRow = makeRow(tr("Scheduled scan threats"));
 
     gl->addWidget(m_clamavRow);
     gl->addWidget(m_daemonRow);
@@ -41,6 +43,7 @@ DetailsDialog::DetailsDialog(QWidget *parent) : QDialog(parent)
     gl->addWidget(m_firewallRow);
     gl->addWidget(m_threatsRow);
     gl->addWidget(m_quarantineRow);
+    gl->addWidget(m_schedThreatsRow);
 
     layout->addWidget(group);
 
@@ -112,6 +115,18 @@ void DetailsDialog::updateStatus(const SystemStatus &status)
         setRowInfo(m_quarantineRow, tr("Files in quarantine — already neutralized, "
                                        "no action required"));
     }
+
+    // Scheduled scan threats
+    if (status.scheduledThreatsCount == 0) {
+        setRowStatus(m_schedThreatsRow, true,
+                     tr("No pending threats from scheduled scans"),
+                     {});
+    } else {
+        setRowStatus(m_schedThreatsRow, false,
+                     {},
+                     tr("%n file(s) detected by scheduled scans — open Scheduled Scans to take action.",
+                        nullptr, status.scheduledThreatsCount));
+    }
 }
 
 QLabel *DetailsDialog::makeRow(const QString &text)
@@ -119,6 +134,7 @@ QLabel *DetailsDialog::makeRow(const QString &text)
     auto *lbl = new QLabel(this);
     QFont f = lbl->font(); f.setPointSize(10); lbl->setFont(f);
     lbl->setWordWrap(true);
+    lbl->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     lbl->setText(ROW_FAIL.arg(text));
     return lbl;
 }

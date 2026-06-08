@@ -14,6 +14,7 @@ struct SystemStatus {
     bool firewallEnabled          = false;
     bool quarantineClean          = true;
     bool hasActiveThreats         = false;
+    int  scheduledThreatsCount    = 0;
     bool onAccessPreventionEnabled = false;
     ProtectionLevel level         = ProtectionLevel::Alert;
     bool overallProtected         = false;  // true only when level == Protected
