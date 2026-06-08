@@ -1338,8 +1338,12 @@ Elige una acción para cada archivo: ponerlo en cuarentena, agregar su carpeta a
         <translation>Mover a Cuarentena</translation>
     </message>
     <message>
-        <source>Add Folder to Exclusions</source>
-        <translation>Agregar Carpeta a Exclusiones</translation>
+        <source>Exclude File</source>
+        <translation>Excluir Archivo</translation>
+    </message>
+    <message>
+        <source>Exclude Folder</source>
+        <translation>Excluir Carpeta</translation>
     </message>
     <message>
         <source>Delete File</source>
@@ -1450,6 +1454,16 @@ Verifica los permisos del archivo.</translation>
     <message>
         <source>Exclusion added</source>
         <translation>Exclusión agregada</translation>
+    </message>
+    <message>
+        <source>The file has been added to scan exclusions:
+%1
+
+Future scans will skip this file.</source>
+        <translation>El archivo se agregó a las exclusiones de escaneo:
+%1
+
+Los escaneos futuros omitirán este archivo.</translation>
     </message>
     <message>
         <source>The folder has been added to scan exclusions:

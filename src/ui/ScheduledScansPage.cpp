@@ -324,26 +324,31 @@ void ScheduledScansPage::buildThreatsTab(QWidget *tab)
     layout->addWidget(m_threatsTable);
 
     auto *actRow = new QHBoxLayout;
-    m_btnQuarantine = new QPushButton(QIcon::fromTheme("security-high"),
-                                     tr("Move to Quarantine"), tab);
-    m_btnExclude    = new QPushButton(QIcon::fromTheme("list-add"),
-                                     tr("Add Folder to Exclusions"), tab);
-    m_btnDeleteFile = new QPushButton(QIcon::fromTheme("edit-delete"),
-                                     tr("Delete File"), tab);
+    m_btnQuarantine    = new QPushButton(QIcon::fromTheme("security-high"),
+                                        tr("Move to Quarantine"), tab);
+    m_btnExcludeFile   = new QPushButton(QIcon::fromTheme("document-new"),
+                                        tr("Exclude File"), tab);
+    m_btnExcludeFolder = new QPushButton(QIcon::fromTheme("folder-new"),
+                                        tr("Exclude Folder"), tab);
+    m_btnDeleteFile    = new QPushButton(QIcon::fromTheme("edit-delete"),
+                                        tr("Delete File"), tab);
 
     m_btnQuarantine->setEnabled(false);
-    m_btnExclude->setEnabled(false);
+    m_btnExcludeFile->setEnabled(false);
+    m_btnExcludeFolder->setEnabled(false);
     m_btnDeleteFile->setEnabled(false);
 
     actRow->addWidget(m_btnQuarantine);
-    actRow->addWidget(m_btnExclude);
+    actRow->addWidget(m_btnExcludeFile);
+    actRow->addWidget(m_btnExcludeFolder);
     actRow->addWidget(m_btnDeleteFile);
     actRow->addStretch();
     layout->addLayout(actRow);
 
-    connect(m_btnQuarantine, &QPushButton::clicked, this, &ScheduledScansPage::onThreatQuarantine);
-    connect(m_btnExclude,    &QPushButton::clicked, this, &ScheduledScansPage::onThreatExclude);
-    connect(m_btnDeleteFile, &QPushButton::clicked, this, &ScheduledScansPage::onThreatDelete);
+    connect(m_btnQuarantine,    &QPushButton::clicked, this, &ScheduledScansPage::onThreatQuarantine);
+    connect(m_btnExcludeFile,   &QPushButton::clicked, this, &ScheduledScansPage::onThreatExcludeFile);
+    connect(m_btnExcludeFolder, &QPushButton::clicked, this, &ScheduledScansPage::onThreatExcludeFolder);
+    connect(m_btnDeleteFile,    &QPushButton::clicked, this, &ScheduledScansPage::onThreatDelete);
     connect(m_threatsTable, &QTableWidget::itemSelectionChanged,
             this, &ScheduledScansPage::onThreatSelectionChanged);
 }
@@ -583,7 +588,8 @@ void ScheduledScansPage::onThreatSelectionChanged()
 {
     bool sel = m_threatsTable->currentRow() >= 0;
     m_btnQuarantine->setEnabled(sel);
-    m_btnExclude->setEnabled(sel);
+    m_btnExcludeFile->setEnabled(sel);
+    m_btnExcludeFolder->setEnabled(sel);
     m_btnDeleteFile->setEnabled(sel);
 }
 
@@ -614,7 +620,25 @@ void ScheduledScansPage::onThreatQuarantine()
     }
 }
 
-void ScheduledScansPage::onThreatExclude()
+void ScheduledScansPage::onThreatExcludeFile()
+{
+    int row = m_threatsTable->currentRow();
+    if (row < 0) return;
+
+    auto *item = m_threatsTable->item(row, 0);
+    QString threatId = item->data(Qt::UserRole).toString();
+    QString filePath = item->data(Qt::UserRole + 1).toString();
+
+    m_clam->addExclusion(filePath);
+    m_mgr->removeScheduledThreat(threatId);
+    refreshThreats();
+
+    QMessageBox::information(this, tr("Exclusion added"),
+        tr("The file has been added to scan exclusions:\n%1\n\n"
+           "Future scans will skip this file.").arg(filePath));
+}
+
+void ScheduledScansPage::onThreatExcludeFolder()
 {
     int row = m_threatsTable->currentRow();
     if (row < 0) return;

@@ -34,7 +34,8 @@ private slots:
     void onScanLogUpdated(const QString &scheduleId);
 
     void onThreatQuarantine();
-    void onThreatExclude();
+    void onThreatExcludeFile();
+    void onThreatExcludeFolder();
     void onThreatDelete();
     void onThreatSelectionChanged();
 
@@ -64,6 +65,7 @@ private:
     // Threats tab
     QTableWidget  *m_threatsTable;
     QPushButton   *m_btnQuarantine;
-    QPushButton   *m_btnExclude;
+    QPushButton   *m_btnExcludeFile;
+    QPushButton   *m_btnExcludeFolder;
     QPushButton   *m_btnDeleteFile;
 };
