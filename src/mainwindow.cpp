@@ -285,13 +285,10 @@ void MainWindow::connectSignals()
         // Auto-refresh the page if it's currently open
         if (m_stack->currentWidget() == m_activeThreatsPage)
             m_activeThreatsPage->refresh();
-        // Update status
+        // Update card immediately (pendingCount is fresh after addThreat)
+        updateCardSubtitles(m_checker->currentStatus());
+        // Full status refresh runs async; will also call updateCardSubtitles when done
         m_checker->refresh();
-        // Update active threats card subtitle
-        if (m_cardActiveThreats) {
-            m_cardActiveThreats->setSubtitle(tr("New threat!"));
-            m_cardActiveThreats->setStatusColor(QColor(0xC6, 0x28, 0x28));
-        }
     });
 
     // Config saved notification
@@ -454,6 +451,16 @@ void MainWindow::updateCardSubtitles(const SystemStatus &status)
     m_cardExcl->setSubtitle(tr("%n excluded path(s)", nullptr, exclList.size()));
     m_cardExcl->setStatusColor(palette().color(QPalette::Text));
 
+    // Active Threats card: always show current count
+    int activeCount = ActiveThreatsPage::pendingCount();
+    if (activeCount > 0) {
+        m_cardActiveThreats->setSubtitle(tr("%n active threat(s)", nullptr, activeCount));
+        m_cardActiveThreats->setStatusColor(QColor(0xC6, 0x28, 0x28));
+    } else {
+        m_cardActiveThreats->setSubtitle(tr("Real-time detections"));
+        m_cardActiveThreats->setStatusColor(palette().color(QPalette::Text));
+    }
+
     // Scheduler card: highlight pending threats
     int schedCount   = m_schedMgr->schedules().size();
     int pendingThreats = m_schedMgr->scheduledThreats().size();
@@ -485,8 +492,6 @@ void MainWindow::navigateTo(Page page)
     case Page::Settings:      m_settingsPage->refresh();       break;
     case Page::ActiveThreats:
         m_activeThreatsPage->refresh();
-        m_cardActiveThreats->setSubtitle(tr("Real-time detections"));
-        m_cardActiveThreats->setStatusColor(palette().color(QPalette::Text));
         break;
     case Page::ScheduledScans:
         m_scheduledScansPage->refresh();
@@ -508,6 +513,8 @@ void MainWindow::onShowDetails()
     DetailsDialog dlg(this);
     SystemStatus s = m_checker->currentStatus();
     s.scheduledThreatsCount = m_schedMgr->scheduledThreats().size();
+    // Override with fresh counts so the dialog is never stale
+    s.hasActiveThreats = ActiveThreatsPage::pendingCount() > 0;
     dlg.updateStatus(s);
     dlg.exec();
 }

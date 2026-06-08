@@ -737,6 +737,13 @@ Requiere que clamav-daemon esté activo.</translation>
         <source>New threat!</source>
         <translation>¡Nueva amenaza!</translation>
     </message>
+    <message numerus="yes">
+        <source>%n active threat(s)</source>
+        <translation>
+            <numerusform>%n amenaza activa</numerusform>
+            <numerusform>%n amenazas activas</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Configuration error: %1</source>
         <translation>Error de configuración: %1</translation>
