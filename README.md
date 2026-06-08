@@ -2,7 +2,11 @@
 
 Interfaz gráfica nativa para Linux que integra **ClamAV** y **UFW** en una sola aplicación — antivirus, firewall, protección en tiempo real y actualizaciones automáticas de firmas, todo desde un panel unificado.
 
-> Desarrollado con Qt6/C++ · Probado en Manjaro KDE Plasma (Wayland/X11)
+<p align="center">
+  <img src="docs/images/overview-protected.png" alt="Vista general — equipo protegido" />
+</p>
+
+> Desarrollado con Qt6/C++ · Probado en Manjaro KDE Plasma (Wayland)
 
 ---
 
@@ -21,17 +25,6 @@ Interfaz gráfica nativa para Linux que integra **ClamAV** y **UFW** en una sola
 - **System Tray** con indicador de protección e inicio oculto al arrancar el sistema
 - **Sin root** — los comandos privilegiados usan `pkexec` (diálogo Polkit estándar de KDE)
 - Soporte de idiomas: **Español** e **Inglés** (detección automática del sistema)
-
----
-
-## Capturas de pantalla
-
-![Vista general — equipo protegido](docs/images/overview-protected.png)
-![Detalles de estado del sistema](docs/images/details.png)
-![Módulo de escaneo](docs/images/scan.png)
-![Base de datos y actualizaciones automáticas](docs/images/database.png)
-![Gestión del firewall UFW](docs/images/firewall.png)
-![System Tray](docs/images/tray.png)
 
 ---
 
@@ -298,6 +291,26 @@ ClamSecurity/
 | Notificaciones no llegan | Verifica que `OnAccessPrevention yes` esté en `clamd.conf` y que `clamonacc` esté activo |
 | RT activa pero monitor en **ámbar** | On-Access Prevention está desactivado — actívalo desde Ajustes |
 | inotify exhausted en logs | Aumenta `fs.inotify.max_user_watches` (lo hace `setup.sh` automáticamente) |
+
+---
+
+## Capturas de pantalla
+
+<p align="center">
+  <img src="docs/images/details.png" alt="Detalles de estado del sistema" />
+</p>
+<p align="center">
+  <img src="docs/images/scan.png" alt="Módulo de escaneo" />
+</p>
+<p align="center">
+  <img src="docs/images/database.png" alt="Base de datos y actualizaciones automáticas" />
+</p>
+<p align="center">
+  <img src="docs/images/firewall.png" alt="Gestión del firewall UFW" />
+</p>
+<p align="center">
+  <img src="docs/images/tray.png" alt="System Tray" />
+</p>
 
 ---
 

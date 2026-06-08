@@ -2,7 +2,11 @@
 
 Native Linux GUI that integrates **ClamAV** and **UFW** into a single application — antivirus, firewall, real-time protection and automatic signature updates, all from a unified dashboard.
 
-> Built with Qt6/C++ · Tested on Manjaro KDE Plasma (Wayland/X11)
+<p align="center">
+  <img src="docs/images/overview-protected_en.png" alt="Overview — fully protected" />
+</p>
+
+> Built with Qt6/C++ · Tested on Manjaro KDE Plasma (Wayland)
 
 ---
 
@@ -21,17 +25,6 @@ Native Linux GUI that integrates **ClamAV** and **UFW** into a single applicatio
 - **System Tray** with protection indicator and hidden startup on login
 - **No root required** — privileged commands use `pkexec` (standard KDE Polkit dialog)
 - Languages: **Spanish** and **English** (auto-detected from system locale)
-
----
-
-## Screenshots
-
-![Overview — fully protected](docs/images/overview-protected.png)
-![System status details](docs/images/details.png)
-![Scan module in progress](docs/images/scan.png)
-![Database and automatic updates](docs/images/database.png)
-![UFW firewall management](docs/images/firewall.png)
-![System Tray](docs/images/tray.png)
 
 ---
 
@@ -298,6 +291,26 @@ ClamSecurity/
 | Notifications not arriving | Verify `OnAccessPrevention yes` is in `clamd.conf` and `clamonacc` is active |
 | RT active but monitor shows **amber** | On-Access Prevention is disabled — enable it in Settings |
 | inotify exhausted in logs | Increase `fs.inotify.max_user_watches` (done automatically by `setup.sh`) |
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/details_en.png" alt="System status details" />
+</p>
+<p align="center">
+  <img src="docs/images/scan_en.png" alt="Scan module in progress" />
+</p>
+<p align="center">
+  <img src="docs/images/database_en.png" alt="Database and automatic updates" />
+</p>
+<p align="center">
+  <img src="docs/images/firewall_en.png" alt="UFW firewall management" />
+</p>
+<p align="center">
+  <img src="docs/images/tray_en.png" alt="System Tray" />
+</p>
 
 ---
 
