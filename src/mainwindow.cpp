@@ -89,7 +89,7 @@ void MainWindow::setupUI()
     m_firewallPage      = new FirewallPage(m_ufw);
     m_settingsPage      = new SettingsPage(m_autostart, m_clam, m_langMgr, m_cfgMgr);
     m_activeThreatsPage  = new ActiveThreatsPage(m_quar, m_clam, m_cfgMgr);
-    m_scheduledScansPage = new ScheduledScansPage(m_schedMgr);
+    m_scheduledScansPage = new ScheduledScansPage(m_schedMgr, m_quar, m_clam);
 
     m_stack->addWidget(buildOverviewPage());     // index 0
     m_stack->addWidget(m_scanPage);              // 1
@@ -321,6 +321,15 @@ void MainWindow::connectSignals()
             this, &MainWindow::navigateBack);
     connect(m_scheduledScansPage,   &ScheduledScansPage::backRequested,
             this, &MainWindow::navigateBack);
+    connect(m_scheduledScansPage, &ScheduledScansPage::threatNotification,
+            this, [this](const QString &scanName, int count) {
+                m_notif->send(
+                    tr("Threat detected"),
+                    tr("%n threat(s) found in scheduled scan \"%2\".\n"
+                       "Open the Scheduled Scans panel to take action.", nullptr, count)
+                        .arg(scanName),
+                    "security-low", 2);
+            });
 
     connect(m_settingsPage, &SettingsPage::themeChangeRequested,
             this, &MainWindow::applyTheme);
