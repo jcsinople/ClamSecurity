@@ -81,13 +81,13 @@ If you prefer to build without running `setup.sh`, first install the build depen
 
 ```bash
 # Arch/Manjaro
-sudo pacman -S qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons
+sudo pacman -S qt6-base qt6-tools cmake ninja base-devel polkit breeze-icons kwindowsystem
 
 # Debian/Ubuntu
-sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev
+sudo apt-get install qt6-base-dev qt6-tools-dev cmake ninja-build build-essential libpolicykit-1-dev libkf6windowsystem-dev
 
 # Fedora
-sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel
+sudo dnf install qt6-qtbase-devel qt6-qttools-devel cmake ninja-build gcc-c++ polkit-devel kf6-kwindowsystem-devel
 ```
 
 ```bash
